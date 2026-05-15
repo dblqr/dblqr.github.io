@@ -2,6 +2,7 @@
   "private": true,
   "scripts": {
     "test": "node test.js",
+    "build": "rm -rf dist && mkdir -p dist && cp -R index.html app.js styles.css scanner.js timestamp.js dist/",
     "test:e2e": "npx playwright test",
     "test:all": "node test.js && npx playwright test",
     "generate-fixtures": "node generate-fixtures.js"
