@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Friend Code QR Generator
 
 QR code generator for friend codes. Generates time-stamped QR codes that can be scanned in-game.
@@ -47,11 +46,11 @@ Example: `Date.now()` = `0x190e0a1b2c3` → timestamp `CMBSBNCPDQE` → QR data 
 
 **`parseFriendCodeFromQR(qrData)`** is a universal parser that extracts the 8-char friend code from any of the 3 known QR formats:
 
-| Format | Example | Source |
-|--------|---------|--------|
-| Plain 8-char code | `ab12cd34` | Other players' QR codes |
-| `4,{code}{timestamp}` | `4,ab12cd34CMBSBNCPDQE` | This app's generated QR codes |
-| `7,{code}` | `7,ab12cd34` | In-game "Scan Code" screen |
+| Format                  | Example                      | Source                         |
+| ----------------------- | ---------------------------- | ------------------------------ |
+| Plain 8-char code       | `ab12cd34`                   | Other players' QR codes        |
+| `4,{code}{timestamp}`   | `4,ab12cd34CMBSBNCPDQE`      | This app's generated QR codes  |
+| `7,{code}`              | `7,ab12cd34`                 | In-game "Scan Code" screen     |
 | URL with `token=` param | `https://...?token=ab12cd34` | In-game profile card deep link |
 
 Both exports use a `module.exports` guard so the file works as a browser global AND a Node.js module.
@@ -62,19 +61,20 @@ Exports `createScanner(deps)` — a factory that returns scanner methods without
 
 ```js
 const scanner = createScanner({
-    parseFriendCodeFromQR,  // from timestamp.js
-    showToast,              // from app.js
-    generateAllQRCodes,     // from app.js
-    getDialog,              // returns the <dialog> element
-    getElement,             // getElementById wrapper
-    querySelectorAll,       // querySelectorAll wrapper
-    Html5Qrcode             // QR scanning library from CDN
+  parseFriendCodeFromQR, // from timestamp.js
+  showToast, // from app.js
+  generateAllQRCodes, // from app.js
+  getDialog, // returns the <dialog> element
+  getElement, // getElementById wrapper
+  querySelectorAll, // querySelectorAll wrapper
+  Html5Qrcode, // QR scanning library from CDN
 });
 ```
 
 This makes `onScanSuccess` (the core scan logic: parse, validate, dedupe, advance) testable in Node.js by mocking the DOM callbacks.
 
 Key methods:
+
 - `openScanner()` — resets state, opens `<dialog>` via `showModal()`, starts camera
 - `onScanSuccess(decodedText)` — parses QR data, rejects duplicates/invalid, advances scan index
 - `closeScanner()` — stops camera, closes dialog via `close()`
@@ -95,6 +95,7 @@ Browser-only (no module.exports). Runs on `DOMContentLoaded`:
 ### index.html — semantic HTML5
 
 Uses native HTML5 elements:
+
 - `<dialog id="scanner-dialog">` for the scanner modal (native `showModal()`/`close()`, `::backdrop`, Escape key)
 - `<nav id="actions">` for the button bar
 - `<section>` for QR display and empty state
@@ -103,6 +104,7 @@ Uses native HTML5 elements:
 - `<header>` inside the dialog for the scanner title bar
 
 External dependencies (CDN, loaded with `defer`):
+
 - `qrcodejs` 1.0.0 — QR code generation
 - `html5-qrcode` 2.3.8 — camera QR scanning and image file scanning
 
@@ -136,6 +138,7 @@ Tests use Node.js `assert` with no test framework. Three test suites:
 3. **Fixture tests** — decodes each committed QR code PNG with `jsqr`, asserts the raw data matches, then runs it through `parseFriendCodeFromQR` to verify the expected friend code
 
 Dev dependencies (test-only, not used in browser):
+
 - `qrcode` — generates test fixture PNGs
 - `jsqr` — decodes QR codes from pixel data
 - `pngjs` — reads PNG files into pixel arrays for jsqr
@@ -143,6 +146,3 @@ Dev dependencies (test-only, not used in browser):
 ## Deployment
 
 Static site — deploy to GitHub Pages directly from the repo root. No build step required.
-=======
-# shenron-qr
->>>>>>> origin/main
