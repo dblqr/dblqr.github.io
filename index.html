@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Friend Code QR Generator</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
+    <script src="timestamp.js" defer></script>
+    <script src="scanner.js" defer></script>
+    <script src="app.js" defer></script>
+</head>
+
+<body>
+    <main>
+        <h1>Friend Code QR Generator</h1>
+
+        <nav id="actions">
+            <div class="btn-group">
+                <button id="import-codes" class="btn-primary">Scan QR Codes</button>
+                <span class="btn-desc">Use camera or upload a screenshot</span>
+            </div>
+            <div class="btn-group">
+                <button id="export-codes">Export Friend Codes</button>
+                <span class="btn-desc">Save codes to a .txt file</span>
+            </div>
+            <div class="btn-group">
+                <button id="upload-codes">Upload Friend Codes</button>
+                <span class="btn-desc">Load codes from a .txt file</span>
+            </div>
+            <div class="btn-group">
+                <button id="manual-refresh">Manual Refresh</button>
+                <span class="btn-desc">Regenerate QR codes now</span>
+            </div>
+            <div class="btn-group">
+                <button id="clear-codes" class="btn-danger">Clear</button>
+                <span class="btn-desc">Remove all friend codes</span>
+            </div>
+            <input type="file" id="file-input" accept=".txt" hidden>
+        </nav>
+
+        <form id="friend-code-form"></form>
+
+        <section id="empty-state" hidden>
+            <p>No friend codes added yet. Get started:</p>
+            <ul>
+                <li>Type friend codes into the fields above</li>
+                <li>Tap <strong>Scan QR Codes</strong> to scan from a friend's screen</li>
+                <li>Tap <strong>Upload Friend Codes</strong> to load from a .txt file</li>
+            </ul>
+        </section>
+
+        <section class="qr-display"></section>
+
+        <output id="toast" role="status" aria-live="polite"></output>
+    </main>
+
+    <footer id="how-it-works">
+        <h2>How It Works</h2>
+        <ol>
+            <li>Enter up to 3 friend codes by typing them in, scanning QR codes, or uploading a text file.</li>
+            <li>The app generates a time-stamped QR code for each friend code that can be scanned in-game.</li>
+            <li>QR codes auto-refresh every 10 seconds to stay valid for the game.</li>
+            <li>Share your codes with friends by exporting to a .txt file or letting them scan your screen.</li>
+        </ol>
+    </footer>
+
+    <dialog id="scanner-dialog">
+        <header id="scanner-header">
+            <span id="scanner-title">Scan Friend Code 1 of 3</span>
+            <button id="scanner-close">&times;</button>
+        </header>
+        <div id="scanner-viewfinder"></div>
+        <p id="scanner-status">Point your camera at a QR code</p>
+        <section id="scanner-upload-section">
+            <p>Or upload a screenshot of the QR code:</p>
+            <button id="scanner-upload-btn">Upload Image</button>
+            <input type="file" id="scanner-file-input" accept="image/*" hidden>
+        </section>
+    </dialog>
+</body>
+
+</html>

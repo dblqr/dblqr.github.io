@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shenron QR Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+    <style>
+        :root {
+            --bg-color: #FFFFFF;
+            --text-color: #000000;
+            --button-bg: #000000;
+            --button-text: #FFFFFF;
+        }
+
+        body.dark-mode {
+            --bg-color: #222831;
+            --text-color: #DFD0B8;
+            --button-bg: #393E46;
+            --button-text: #DFD0B8;
+        }
+
+        body {
+            margin: 0;
+            font-family: sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        h1 {
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 1.5rem;
+        }
+
+        #top-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        #dark-mode-toggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: transparent;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: var(--text-color);
+        }
+
+        #friend-code-form {
+            max-width: 600px;
+            margin: 20px auto;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            padding: 0 10px;
+        }
+
+        #friend-code-form input {
+            padding: 8px;
+            text-align: center;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        #friend-code-form input::placeholder {
+            color: var(--text-color);
+            opacity: 0.7;
+        }
+
+        .qr-display {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 40px 20px;
+            justify-items: center;
+            padding: 20px;
+        }
+
+        .qr-display>div {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+
+        .qr-display>div.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        pre {
+            background-color: var(--text-color);
+            color: var(--bg-color);
+            padding: 10px;
+            margin-bottom: 12px;
+            word-wrap: break-word;
+            width: 180px;
+            text-align: center;
+            font-family: monospace;
+            border-radius: 4px;
+        }
+
+        .download-button,
+        #manual-refresh,
+        #copy-all,
+        #import-codes {
+            margin-top: 8px;
+            background-color: var(--button-bg);
+            color: var(--button-text);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        #toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--button-bg);
+            color: var(--button-text);
+            padding: 8px 16px;
+            border-radius: 4px;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            z-index: 999;
+        }
+
+        #toast.show {
+            opacity: 1;
+        }
+
+        @media (max-width: 768px) {
+
+            #friend-code-form,
+            .qr-display {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+
+            #friend-code-form,
+            .qr-display {
+                grid-template-columns: 1fr;
+            }
+
+            pre {
+                width: 90%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <button id="dark-mode-toggle" aria-label="Toggle dark mode">:crescent_moon:</button>
+    <h1>Shenron QR Generator</h1>
+    <div id="top-buttons">
+        <button id="copy-all">Copy All QR Codes</button>
+        <button id="import-codes">Import QR Codes</button>
+        <button id="manual-refresh">Manual Refresh</button>
+    </div>
+    <form id="friend-code-form"></form>
+    <div class="qr-display"></div>
+    <div id="toast"></div>
+
+    <script>
+        class DblTimestampHelper {
+            static timestampEncoding = ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'M', 'N', 'P', 'Q', 'R', 'S', 'T'];
+            static createDblTimestamp() {
+                return [...Date.now().toString(16)].map(char => this.timestampEncoding[parseInt(char, 16)]).join('');
+            }
+        }
+
+        let intervalId = null;
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        function getFriendCodes() {
+            return Array.from(document.querySelectorAll('#friend-code-form input'))
+                .map((input, i) => input.value.trim().toLowerCase());
+        }
+
+        function saveFriendCodes(codes) {
+            localStorage.setItem('friendCodes', JSON.stringify(codes));
+        }
+
+        function loadFriendCodes() {
+            return JSON.parse(localStorage.getItem('friendCodes') || '[]');
+        }
+
+        function generateAllQRCodes() {
+            const displayContainer = document.querySelector('.qr-display');
+            displayContainer.innerHTML = '';
+            const codes = getFriendCodes();
+            saveFriendCodes(codes);
+
+            codes.forEach((code, index) => {
+                const qrBlock = document.createElement('div');
+                const textContainer = document.createElement('pre');
+                const qrContainer = document.createElement('div');
+                const downloadButton = document.createElement('button');
+                downloadButton.className = 'download-button';
+                downloadButton.textContent = 'Download QR Code';
+
+                const qrData = `4,${code}${DblTimestampHelper.createDblTimestamp()}`;
+                textContainer.textContent = qrData;
+
+                new QRCode(qrContainer, {
+                    text: qrData,
+                    width: 180,
+                    height: 180,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+
+                const checkCanvasReady = () => {
+                    const canvas = qrContainer.querySelector('canvas');
+                    if (canvas) {
+                        const imgData = canvas.toDataURL("image/png");
+                        downloadButton.onclick = () => {
+                            const link = document.createElement('a');
+                            link.href = imgData;
+                            link.download = `qr-${index + 1}.png`;
+                            link.click();
+                            showToast('Downloaded!');
+                        };
+                    } else {
+                        if (checkCanvasReady.attempts < 10) {
+                            checkCanvasReady.attempts++;
+                            setTimeout(checkCanvasReady, 100);
+                        }
+                    }
+                };
+                checkCanvasReady.attempts = 0;
+                checkCanvasReady();
+
+                qrBlock.appendChild(textContainer);
+                qrBlock.appendChild(qrContainer);
+                qrBlock.appendChild(downloadButton);
+                displayContainer.appendChild(qrBlock);
+
+                requestAnimationFrame(() => qrBlock.classList.add('visible'));
+            });
+        }
+
+        function startAutoRefresh() {
+            clearInterval(intervalId);
+            intervalId = setInterval(generateAllQRCodes, 10000);
+        }
+
+        function setupFriendForm() {
+            const form = document.getElementById('friend-code-form');
+            const saved = loadFriendCodes();
+            for (let i = 0; i < 3; i++) {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.placeholder = `Friend Code ${i + 1}`;
+                input.maxLength = 8;
+                input.pattern = '[a-zA-Z0-9]{8}';
+                input.title = '8-character alphanumeric code';
+                if (saved[i]) input.value = saved[i];
+                form.appendChild(input);
+            }
+        }
+
+        function applyAutoDarkMode() {
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (prefersDark) {
+                document.body.classList.add('dark-mode');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setupFriendForm();
+            applyAutoDarkMode();
+            generateAllQRCodes();
+            startAutoRefresh();
+
+            document.getElementById('manual-refresh').addEventListener('click', () => {
+                generateAllQRCodes();
+                startAutoRefresh();
+                showToast('QRs refreshed!');
+            });
+
+            document.getElementById('copy-all').addEventListener('click', () => {
+                const codes = getFriendCodes().join(',');
+                navigator.clipboard.writeText(codes);
+                showToast('Friend codes copied!');
+            });
+
+            document.getElementById('import-codes').addEventListener('click', () => {
+                const userInput = prompt('Paste 3 friend codes separated by commas or newlines:');
+                if (userInput) {
+                    const parsed = userInput
+                        .split(/[\s,]+/) // split by any whitespace or comma
+                        .map(code => code.trim().toLowerCase())
+                        .filter(code => /^[a-z0-9]{8}$/.test(code)) // validate 8-char alphanumeric
+                        .slice(0, 6);
+
+                    const inputs = document.querySelectorAll('#friend-code-form input');
+                    parsed.forEach((code, idx) => {
+                        if (inputs[idx]) inputs[idx].value = code;
+                    });
+
+                    generateAllQRCodes();
+                    showToast('Friend codes imported!');
+                }
+            });
+
+            document.getElementById('dark-mode-toggle').addEventListener('click', () => {
+                document.body.classList.toggle('dark-mode');
+            });
+        });
+    </script>
+</body>
+
+</html>
