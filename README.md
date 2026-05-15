@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Friend Code QR Generator
 
 QR code generator for friend codes. Generates time-stamped QR codes that can be scanned in-game.
@@ -142,3 +143,6 @@ Dev dependencies (test-only, not used in browser):
 ## Deployment
 
 Static site — deploy to GitHub Pages directly from the repo root. No build step required.
+=======
+# shenron-qr
+>>>>>>> origin/main
