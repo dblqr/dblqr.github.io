@@ -360,3 +360,24 @@ pre {
 #scanner-dialog::backdrop {
     background: rgba(26, 26, 46, 0.7);
 }
+
+#scanner-nav {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+#scanner-prev, #scanner-next {
+    background: none;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    padding: 2px 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    color: #1a1a2e;
+    transition: background-color 0.2s;
+}
+
+#scanner-prev:hover, #scanner-next:hover {
+    background-color: #e5e7eb;
+}

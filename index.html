@@ -61,7 +61,7 @@
     <footer id="how-it-works">
         <h2>How It Works</h2>
         <ol>
-            <li>Enter up to 3 friend codes by typing them in, scanning QR codes, or uploading a text file.</li>
+            <li>Enter up to 6 friend codes by typing them in, scanning QR codes, or uploading a text file.</li>
             <li>The app generates a time-stamped QR code for each friend code that can be scanned in-game.</li>
             <li>QR codes auto-refresh every 10 seconds to stay valid for the game.</li>
             <li>Share your codes with friends by exporting to a .txt file or letting them scan your screen.</li>
@@ -70,7 +70,11 @@
 
     <dialog id="scanner-dialog">
         <header id="scanner-header">
-            <span id="scanner-title">Scan Friend Code 1 of 3</span>
+            <div id="scanner-nav">
+                <button id="scanner-prev" title="Previous">&lt;</button>
+                <span id="scanner-title">Scan Friend Code 1 of 6</span>
+                <button id="scanner-next" title="Next">&gt;</button>
+            </div>
             <button id="scanner-close">&times;</button>
         </header>
         <div id="scanner-viewfinder"></div>

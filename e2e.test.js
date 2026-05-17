@@ -18,10 +18,10 @@ test.beforeEach(async ({ page }) => {
 // 1. Initial page load
 // ---------------------------------------------------------------------------
 test.describe('Initial page load', () => {
-  test('form has 3 empty inputs', async ({ page }) => {
+  test('form has 6 empty inputs', async ({ page }) => {
     const inputs = page.locator('#friend-code-form input');
-    await expect(inputs).toHaveCount(3);
-    for (let i = 0; i < 3; i++) {
+    await expect(inputs).toHaveCount(6);
+    for (let i = 0; i < 6; i++) {
       await expect(inputs.nth(i)).toHaveValue('');
     }
   });
@@ -58,11 +58,17 @@ test.describe('QR code generation', () => {
     await fillCode(page, 0, 'aaaaaaaa');
     await fillCode(page, 1, 'bbbbbbbb');
     await fillCode(page, 2, 'cccccccc');
+    await fillCode(page, 3, 'dddddddd');
+    await fillCode(page, 4, 'eeeeeeee');
+    await fillCode(page, 5, 'ffffffff');
     const blocks = page.locator('.qr-display > div.visible');
-    await expect(blocks).toHaveCount(3);
+    await expect(blocks).toHaveCount(6);
     await expect(blocks.nth(0).locator('pre')).toHaveText('Friend Code 1: aaaaaaaa');
     await expect(blocks.nth(1).locator('pre')).toHaveText('Friend Code 2: bbbbbbbb');
     await expect(blocks.nth(2).locator('pre')).toHaveText('Friend Code 3: cccccccc');
+    await expect(blocks.nth(3).locator('pre')).toHaveText('Friend Code 4: dddddddd');
+    await expect(blocks.nth(4).locator('pre')).toHaveText('Friend Code 5: eeeeeeee');
+    await expect(blocks.nth(5).locator('pre')).toHaveText('Friend Code 6: ffffffff');
   });
 });
 
@@ -90,7 +96,7 @@ test.describe('localStorage persistence', () => {
     const stored = await page.evaluate(() => localStorage.getItem('friendCodes'));
     const parsed = JSON.parse(stored);
     expect(parsed[0]).toBe('store123');
-    expect(parsed).toHaveLength(3);
+    expect(parsed).toHaveLength(6);
   });
 });
 
@@ -132,7 +138,7 @@ test.describe('Upload .txt', () => {
     await page.locator('#upload-codes').click();
     const fileChooser = await fileChooserPromise;
 
-    const content = 'upload01\nupload02\nupload03';
+    const content = 'upload01\nupload02\nupload03\nupload04\nupload05\nupload06\nupload07';
     await fileChooser.setFiles({
       name: 'codes.txt',
       mimeType: 'text/plain',
@@ -140,12 +146,15 @@ test.describe('Upload .txt', () => {
     });
 
     const blocks = page.locator('.qr-display > div.visible');
-    await expect(blocks).toHaveCount(3);
+    await expect(blocks).toHaveCount(6);
 
     const inputs = page.locator('#friend-code-form input');
     await expect(inputs.nth(0)).toHaveValue('upload01');
     await expect(inputs.nth(1)).toHaveValue('upload02');
     await expect(inputs.nth(2)).toHaveValue('upload03');
+    await expect(inputs.nth(3)).toHaveValue('upload04');
+    await expect(inputs.nth(4)).toHaveValue('upload05');
+    await expect(inputs.nth(5)).toHaveValue('upload06');
   });
 
   test('filters out invalid codes', async ({ page }) => {
@@ -178,7 +187,7 @@ test.describe('Clear', () => {
     await page.locator('#clear-codes').click();
 
     const inputs = page.locator('#friend-code-form input');
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 6; i++) {
       await expect(inputs.nth(i)).toHaveValue('');
     }
 
@@ -240,5 +249,16 @@ test.describe('Scanner dialog', () => {
     await expect(page.locator('#scanner-dialog')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.locator('#scanner-dialog')).toBeHidden({ timeout: 5000 });
+  });
+
+  test('prev and next buttons change the slot', async ({ page }) => {
+    await page.locator('#import-codes').click();
+    await expect(page.locator('#scanner-title')).toHaveText('Scan Friend Code 1 of 6');
+    await page.locator('#scanner-next').click();
+    await expect(page.locator('#scanner-title')).toHaveText('Scan Friend Code 2 of 6');
+    await page.locator('#scanner-prev').click();
+    await expect(page.locator('#scanner-title')).toHaveText('Scan Friend Code 1 of 6');
+    await page.locator('#scanner-prev').click();
+    await expect(page.locator('#scanner-title')).toHaveText('Scan Friend Code 6 of 6');
   });
 });

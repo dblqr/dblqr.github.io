@@ -2,11 +2,11 @@ function createScanner(deps) {
     // deps = { parseFriendCodeFromQR, showToast, generateAllQRCodes, getDialog, getElement, querySelectorAll, Html5Qrcode }
     let scannerInstance = null;
     let currentScanIndex = 0;
-    const scannedCodes = [null, null, null];
+    const scannedCodes = [null, null, null, null, null, null];
 
     function updateScannerUI() {
         deps.getElement('scanner-title').textContent =
-            `Scan Friend Code ${currentScanIndex + 1} of 3`;
+            `Scan Friend Code ${currentScanIndex + 1} of 6`;
         deps.getElement('scanner-status').textContent =
             'Point your camera at a QR code';
     }
@@ -50,10 +50,10 @@ function createScanner(deps) {
         scannedCodes[currentScanIndex] = friendCode;
         currentScanIndex++;
 
-        if (currentScanIndex >= 3) {
+        if (currentScanIndex >= 6) {
             closeScanner();
             applyScanResults();
-            deps.showToast('All 3 friend codes scanned!');
+            deps.showToast('All 6 friend codes scanned!');
         } else {
             updateScannerUI();
             deps.getElement('scanner-status').textContent =
@@ -81,6 +81,16 @@ function createScanner(deps) {
         deps.generateAllQRCodes();
     }
 
+    function nextSlot() {
+        currentScanIndex = (currentScanIndex + 1) % 6;
+        updateScannerUI();
+    }
+
+    function prevSlot() {
+        currentScanIndex = (currentScanIndex - 1 + 6) % 6;
+        updateScannerUI();
+    }
+
     function getState() {
         return { currentScanIndex, scannedCodes };
     }
@@ -100,6 +110,8 @@ function createScanner(deps) {
         onScanSuccess,
         applyScanResults,
         updateScannerUI,
+        nextSlot,
+        prevSlot,
         getState,
         getScannerInstance,
         setScannerInstance

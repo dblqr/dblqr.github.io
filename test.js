@@ -142,6 +142,9 @@ function makeMockDeps() {
                 { value: '' },
                 { value: '' },
                 { value: '' },
+                { value: '' },
+                { value: '' },
+                { value: '' },
             ],
             Html5Qrcode: class { start() { return Promise.resolve(); } stop() { return Promise.resolve(); } clear() { } },
         },
@@ -187,17 +190,20 @@ function makeMockDeps() {
     );
 }
 
-// 3rd scan triggers completion
+// 6th scan triggers completion
 {
     const { deps, calls } = makeMockDeps();
     const scanner = createScanner(deps);
     scanner.onScanSuccess('ab12cd34');
     scanner.onScanSuccess('ef56gh78');
     scanner.onScanSuccess('jk90mn12');
+    scanner.onScanSuccess('aa11bb22');
+    scanner.onScanSuccess('cc33dd44');
+    scanner.onScanSuccess('ee55ff66');
     const state = scanner.getState();
-    assert.strictEqual(state.currentScanIndex, 3, 'Index is 3 after all scans');
-    assert.deepStrictEqual(state.scannedCodes, ['ab12cd34', 'ef56gh78', 'jk90mn12'], 'All codes stored');
-    assert.ok(calls.showToast.some(m => m.includes('All 3')), 'Toast shows completion message');
+    assert.strictEqual(state.currentScanIndex, 6, 'Index is 6 after all scans');
+    assert.deepStrictEqual(state.scannedCodes, ['ab12cd34', 'ef56gh78', 'jk90mn12', 'aa11bb22', 'cc33dd44', 'ee55ff66'], 'All codes stored');
+    assert.ok(calls.showToast.some(m => m.includes('All 6')), 'Toast shows completion message');
     assert.strictEqual(calls.generateAllQRCodes, 1, 'generateAllQRCodes called on completion');
 }
 
@@ -209,7 +215,7 @@ function makeMockDeps() {
     scanner.onScanSuccess('https://example.com?token=jk90mn12');
     scanner.onScanSuccess('4,ab12cd34BCDEFGHJ');
     const state = scanner.getState();
-    assert.deepStrictEqual(state.scannedCodes, ['ef56gh78', 'jk90mn12', 'ab12cd34'], 'All QR formats parsed');
+    assert.deepStrictEqual(state.scannedCodes, ['ef56gh78', 'jk90mn12', 'ab12cd34', null, null, null], 'All QR formats parsed');
 }
 
 console.log('scanner tests passed.');

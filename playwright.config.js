@@ -5,7 +5,7 @@ export default defineConfig({
   testMatch: 'e2e.test.js',
   timeout: 15000,
   workers: 1,
-  reporter: 'list',
+  reporter: process.env.CI ? 'github' : 'list',
   use: {
     baseURL: 'http://localhost:4173',
     browserName: 'chromium',
