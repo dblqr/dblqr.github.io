@@ -92,7 +92,7 @@ function startAutoRefresh() {
 function setupFriendForm() {
     const form = document.getElementById('friend-code-form');
     const saved = loadFriendCodes();
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 6; i++) {
         const input = document.createElement('input');
         input.type = 'text';
         input.placeholder = `Friend Code ${i + 1}`;
@@ -120,9 +120,13 @@ document.addEventListener('DOMContentLoaded', () => {
         Html5Qrcode: Html5Qrcode
     });
 
+    let inputTimeout;
     document.getElementById('friend-code-form').addEventListener('input', () => {
-        generateAllQRCodes();
-        startAutoRefresh();
+        clearTimeout(inputTimeout);
+        inputTimeout = setTimeout(() => {
+            generateAllQRCodes();
+            startAutoRefresh();
+        }, 300);
     });
 
     document.getElementById('manual-refresh').addEventListener('click', () => {
@@ -157,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const parsed = text.split(/[\s,]+/)
                 .map(c => c.trim().toLowerCase())
                 .filter(c => /^[a-z0-9]{8}$/.test(c))
-                .slice(0, 3);
+                .slice(0, 6);
             const inputs = document.querySelectorAll('#friend-code-form input');
             parsed.forEach((code, idx) => {
                 if (inputs[idx]) inputs[idx].value = code;
@@ -208,10 +212,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }).then(() => {
             const state = scanner.getState();
             const dialog = document.getElementById('scanner-dialog');
-            if (state.currentScanIndex < 3 && dialog.open) {
+            if (state.currentScanIndex < 6 && dialog.open) {
                 scanner.startCamera();
             }
         });
+    });
+
+    document.getElementById('scanner-prev').addEventListener('click', () => {
+        scanner.prevSlot();
+    });
+
+    document.getElementById('scanner-next').addEventListener('click', () => {
+        scanner.nextSlot();
     });
 
     document.getElementById('scanner-close').addEventListener('click', () => {
