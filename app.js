@@ -26,7 +26,8 @@ function generateAllQRCodes() {
     const codes = getFriendCodes();
     saveFriendCodes(codes);
 
-    const hasAnyCodes = codes.some(c => c.length > 0);
+    const validCodes = codes.filter(c => c.length > 0);
+    const hasAnyCodes = validCodes.length > 0;
     const emptyState = document.getElementById('empty-state');
     if (!hasAnyCodes) {
         emptyState.hidden = false;
@@ -34,7 +35,7 @@ function generateAllQRCodes() {
     }
     emptyState.hidden = true;
 
-    codes.forEach((code, index) => {
+    validCodes.forEach((code, index) => {
         const qrBlock = document.createElement('div');
         const textContainer = document.createElement('pre');
         const qrContainer = document.createElement('div');
@@ -47,8 +48,8 @@ function generateAllQRCodes() {
 
         new QRCode(qrContainer, {
             text: qrData,
-            width: 180,
-            height: 180,
+            width: 200,
+            height: 200,
             colorDark: "#000000",
             colorLight: "#ffffff",
             correctLevel: QRCode.CorrectLevel.H

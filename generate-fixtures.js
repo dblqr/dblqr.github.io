@@ -4,8 +4,7 @@ const path = require('path');
 
 const fixtures = [
     { filename: 'plain-code.png', data: 'ab12cd34' },
-    { filename: 'ingame-scan.png', data: '7,ef56gh78' },
-    { filename: 'deeplink-url.png', data: 'https://dblww.go.link?adj_t=srpood5&type=7&token=jk90mn12' },
+    { filename: 'qr01.png', data: '4,zz99aa11CMBSBNCPDQE' },
 ];
 
 const dir = path.join(__dirname, 'test-fixtures');
