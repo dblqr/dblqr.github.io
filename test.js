@@ -227,7 +227,7 @@ const { PNG } = require('pngjs');
 
 const fixtures = [
     { file: 'plain-code.png', expectedData: 'ab12cd34', expectedCode: 'ab12cd34' },
-    { file: 'qr01.png', expectedData: '4,zz99aa11CMBSBNCPDQE', expectedCode: 'zz99aa11' },
+    { file: 'ingame-scan.png', expectedData: '4,zz99aa11CMBSBNCPDQE', expectedCode: 'zz99aa11' },
     { file: 'deeplink-url.png', expectedData: 'https://dblww.go.link?adj_t=srpood5&type=7&token=jk90mn12', expectedCode: 'jk90mn12' },
 ];
 
