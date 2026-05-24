@@ -1,3 +1,28 @@
+async function stopCameraAndCleanup(scanner) {
+    const instance = scanner.getScannerInstance();
+    if (!instance) return;
+    try {
+        await instance.stop();
+        instance.clear();
+    } catch (err) {
+        console.error('Error stopping camera:', err);
+    } finally {
+        scanner.setScannerInstance(null);
+    }
+}
+
+function createScannerDeps() {
+    return {
+        parseFriendCodeFromQR,
+        showToast,
+        generateAllQRCodes,
+        getDialog: () => document.getElementById('scanner-dialog'),
+        getElement: (id) => document.getElementById(id),
+        querySelectorAll: (sel) => document.querySelectorAll(sel),
+        Html5Qrcode
+    };
+}
+
 let intervalId = null;
 
 function showToast(message) {
@@ -111,15 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
     generateAllQRCodes();
     startAutoRefresh();
 
-    const scanner = createScanner({
-        parseFriendCodeFromQR: parseFriendCodeFromQR,
-        showToast: showToast,
-        generateAllQRCodes: generateAllQRCodes,
-        getDialog: () => document.getElementById('scanner-dialog'),
-        getElement: (id) => document.getElementById(id),
-        querySelectorAll: (sel) => document.querySelectorAll(sel),
-        Html5Qrcode: Html5Qrcode
-    });
+    const scanner = createScanner(createScannerDeps());
 
     let inputTimeout;
     document.getElementById('friend-code-form').addEventListener('input', () => {
@@ -169,6 +186,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             generateAllQRCodes();
             showToast(`${parsed.length} code(s) uploaded!`);
+        }).catch(err => {
+            console.error('Failed to parse file:', err);
+            showToast('Error reading file. Please try again.');
         });
         e.target.value = '';
     });
@@ -195,17 +215,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!file) return;
         e.target.value = '';
 
-        const currentInstance = scanner.getScannerInstance();
-        const stopCamera = currentInstance
-            ? currentInstance.stop().then(() => { currentInstance.clear(); scanner.setScannerInstance(null); }).catch(() => { scanner.setScannerInstance(null); })
-            : Promise.resolve();
-
-        stopCamera.then(() => {
+        stopCameraAndCleanup(scanner).then(() => {
             const fileScanner = new Html5Qrcode('scanner-viewfinder');
             return fileScanner.scanFileV2(file, false).then(result => {
                 fileScanner.clear();
                 scanner.onScanSuccess(result.decodedText);
-            }).catch(() => {
+            }).catch((err) => {
+                console.error('Failed to parse QR from image:', err);
                 fileScanner.clear();
                 document.getElementById('scanner-status').textContent =
                     'No QR code found in image. Try another.';
@@ -231,16 +247,12 @@ document.addEventListener('DOMContentLoaded', () => {
         scanner.closeScanner();
     });
 
+    document.getElementById('scanner-retry-btn').addEventListener('click', () => {
+        scanner.retryCamera();
+    });
+
     document.getElementById('scanner-dialog').addEventListener('close', () => {
-        const currentInstance = scanner.getScannerInstance();
-        if (currentInstance) {
-            currentInstance.stop().then(() => {
-                currentInstance.clear();
-                scanner.setScannerInstance(null);
-            }).catch(() => {
-                scanner.setScannerInstance(null);
-            });
-        }
+        stopCameraAndCleanup(scanner);
         const state = scanner.getState();
         if (state.scannedCodes.some(c => c !== null)) {
             scanner.applyScanResults();

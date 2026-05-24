@@ -80,19 +80,27 @@
     <dialog id="scanner-dialog">
         <header id="scanner-header">
             <div id="scanner-nav">
-                <button id="scanner-prev" title="Previous">&lt;</button>
+                <button id="scanner-prev" title="Previous" aria-label="Previous friend code">&lt;</button>
                 <span id="scanner-title">Scan Friend Code 1 of 6</span>
-                <button id="scanner-next" title="Next">&gt;</button>
+                <button id="scanner-next" title="Next" aria-label="Next friend code">&gt;</button>
             </div>
             <button id="scanner-close">&times;</button>
         </header>
         <div id="scanner-viewfinder"></div>
         <p id="scanner-status">Point your camera at a QR code</p>
+        <!-- Retry button shown only when camera access is denied by the user -->
+        <button id="scanner-retry-btn" style="display: none; margin: 1rem 0;">Try Camera Again</button>
         <section id="scanner-upload-section">
             <p>Or upload a screenshot of the QR code:</p>
             <p style="font-size: 0.9em; color: #666;">Tip: Use landscape orientation for player profile screenshots</p>
             <button id="scanner-upload-btn">Upload Image</button>
             <input type="file" id="scanner-file-input" accept="image/*" hidden>
+        </section>
+    </dialog>
+</body>
+
+</html>
+/*" hidden>
         </section>
     </dialog>
 </body>

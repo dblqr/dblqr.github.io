@@ -1,6 +1,11 @@
 class DblTimestampHelper {
     static timestampEncoding = ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'M', 'N', 'P', 'Q', 'R', 'S', 'T'];
 
+    /**
+     * Converts Date.now() hex string to encoded timestamp
+     * Each hex digit (0-f) maps to encoding table (16 chars)
+     * Example: 0x190e0a1b2c3 → "CMBSBNCPDQE"
+     */
     static createDblTimestamp() {
         return [...Date.now().toString(16)].map(char => this.timestampEncoding[parseInt(char, 16)]).join('');
     }
