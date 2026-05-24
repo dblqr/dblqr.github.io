@@ -135,7 +135,7 @@ function makeMockDeps() {
             generateAllQRCodes: () => calls.generateAllQRCodes++,
             getDialog: () => ({ showModal() { }, close() { } }),
             getElement: (id) => {
-                if (!elements[id]) elements[id] = { textContent: '' };
+                if (!elements[id]) elements[id] = { textContent: '', style: {} };
                 return elements[id];
             },
             querySelectorAll: () => [
@@ -241,4 +241,76 @@ for (const { file, expectedData, expectedCode } of fixtures) {
 }
 
 console.log('fixture tests passed.');
+
+// --- Camera Permission State Tests ---
+
+// Suppress console.debug for clean test output
+const originalDebug = console.debug;
+console.debug = () => {};
+
+// Test getCameraPermissionState and setCameraPermissionState
+{
+    // Clear sessionStorage
+    globalThis.sessionStorage = { data: {}, getItem(k) { return this.data[k]; }, setItem(k, v) { this.data[k] = v; }, removeItem(k) { delete this.data[k]; } };
+
+    const { deps, elements } = makeMockDeps();
+    const scanner = createScanner(deps);
+
+    // Initial state should be false
+    assert.strictEqual(scanner.getCameraPermissionState(), false, 'Initial camera permission state is false');
+
+    // Set to denied
+    scanner.setCameraPermissionState(true);
+    assert.strictEqual(scanner.getCameraPermissionState(), true, 'Camera permission state is true after setting');
+
+    // New scanner instance should respect sessionStorage
+    const scanner2 = createScanner(deps);
+    assert.strictEqual(scanner2.getCameraPermissionState(), true, 'New scanner respects sessionStorage for denied permission');
+
+    // Clear state
+    scanner2.setCameraPermissionState(false);
+    assert.strictEqual(scanner2.getCameraPermissionState(), false, 'Camera permission state can be cleared');
+}
+
+// Test openScanner respects permission state
+{
+    globalThis.sessionStorage = { data: {}, getItem(k) { return this.data[k]; }, setItem(k, v) { this.data[k] = v; }, removeItem(k) { delete this.data[k]; } };
+
+    const { deps, elements } = makeMockDeps();
+    const scanner = createScanner(deps);
+
+    // Set permission as denied before opening
+    scanner.setCameraPermissionState(true);
+
+    // openScanner should not call startCamera if permission is denied
+    let cameraStarted = false;
+    deps.Html5Qrcode = class {
+        start() { cameraStarted = true; return Promise.resolve(); }
+        stop() { return Promise.resolve(); }
+        clear() { }
+    };
+
+    scanner.openScanner();
+    assert.strictEqual(cameraStarted, false, 'Camera is not started when permission was previously denied');
+}
+
+// Test retryCamera clears permission state
+{
+    globalThis.sessionStorage = { data: {}, getItem(k) { return this.data[k]; }, setItem(k, v) { this.data[k] = v; }, removeItem(k) { delete this.data[k]; } };
+
+    const { deps } = makeMockDeps();
+    const scanner = createScanner(deps);
+
+    scanner.setCameraPermissionState(true);
+    assert.strictEqual(scanner.getCameraPermissionState(), true, 'Permission state is denied');
+
+    scanner.retryCamera();
+    assert.strictEqual(scanner.getCameraPermissionState(), false, 'Permission state is cleared after retryCamera');
+}
+
+console.log('camera permission tests passed.');
+
+// Restore console.debug
+console.debug = originalDebug;
+
 console.log('All tests passed.');

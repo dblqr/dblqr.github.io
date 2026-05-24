@@ -1,17 +1,58 @@
 function createScanner(deps) {
     // deps = { parseFriendCodeFromQR, showToast, generateAllQRCodes, getDialog, getElement, querySelectorAll, Html5Qrcode }
+    const CAMERA_PERMISSION_DENIED_KEY = 'cameraPermissionDenied';
     let scannerInstance = null;
     let currentScanIndex = 0;
     const scannedCodes = [null, null, null, null, null, null];
+    let permissionDenied = false;
+
+    function getCameraPermissionState() {
+        const state = sessionStorage.getItem(CAMERA_PERMISSION_DENIED_KEY);
+        return state === 'true';
+    }
+
+    function setCameraPermissionState(denied) {
+        permissionDenied = denied;
+        console.debug(`[Camera Scanner] Permission state changed: ${denied ? 'DENIED' : 'ALLOWED'}`);
+        if (denied) {
+            sessionStorage.setItem(CAMERA_PERMISSION_DENIED_KEY, 'true');
+        } else {
+            sessionStorage.removeItem(CAMERA_PERMISSION_DENIED_KEY);
+        }
+    }
+
+    function showRetryButton() {
+        const retryBtn = deps.getElement('scanner-retry-btn');
+        if (retryBtn) retryBtn.style.display = 'block';
+    }
+
+    function hideRetryButton() {
+        const retryBtn = deps.getElement('scanner-retry-btn');
+        if (retryBtn) retryBtn.style.display = 'none';
+    }
 
     function updateScannerUI() {
         deps.getElement('scanner-title').textContent =
             `Scan Friend Code ${currentScanIndex + 1} of 6`;
-        deps.getElement('scanner-status').textContent =
-            'Point your camera at a QR code';
+        const statusEl = deps.getElement('scanner-status');
+        if (permissionDenied) {
+            statusEl.textContent =
+                'Camera access denied. Please use the upload option or try again.';
+            showRetryButton();
+        } else {
+            statusEl.textContent = 'Point your camera at a QR code';
+            hideRetryButton();
+        }
     }
 
     function startCamera() {
+        // Check if permission was already denied in this session
+        if (getCameraPermissionState()) {
+            permissionDenied = true;
+            updateScannerUI();
+            return;
+        }
+
         scannerInstance = new deps.Html5Qrcode('scanner-viewfinder');
         scannerInstance.start(
             { facingMode: 'environment' },
@@ -19,17 +60,35 @@ function createScanner(deps) {
             onScanSuccess,
             () => {}
         ).catch(err => {
-            deps.getElement('scanner-status').textContent =
-                'Camera error: ' + err.message;
+            const errorMsg = err.message || '';
+            // Check if error is related to permission/NotAllowedError
+            if (errorMsg.includes('Permission') || errorMsg.includes('NotAllowedError') || errorMsg.includes('not allowed')) {
+                setCameraPermissionState(true);
+                permissionDenied = true;
+                updateScannerUI();
+            } else {
+                deps.getElement('scanner-status').textContent =
+                    'Camera error: ' + err.message;
+            }
         });
+    }
+
+    function retryCamera() {
+        permissionDenied = false;
+        setCameraPermissionState(false);
+        console.debug('[Camera Scanner] User initiated permission retry');
+        startCamera();
     }
 
     function openScanner() {
         currentScanIndex = 0;
         scannedCodes.fill(null);
+        permissionDenied = getCameraPermissionState();
         deps.getDialog().showModal();
         updateScannerUI();
-        startCamera();
+        if (!permissionDenied) {
+            startCamera();
+        }
     }
 
     function onScanSuccess(decodedText) {
@@ -114,7 +173,10 @@ function createScanner(deps) {
         prevSlot,
         getState,
         getScannerInstance,
-        setScannerInstance
+        setScannerInstance,
+        retryCamera,
+        getCameraPermissionState,
+        setCameraPermissionState
     };
 }
 

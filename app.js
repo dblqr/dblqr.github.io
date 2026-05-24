@@ -231,6 +231,10 @@ document.addEventListener('DOMContentLoaded', () => {
         scanner.closeScanner();
     });
 
+    document.getElementById('scanner-retry-btn').addEventListener('click', () => {
+        scanner.retryCamera();
+    });
+
     document.getElementById('scanner-dialog').addEventListener('close', () => {
         const currentInstance = scanner.getScannerInstance();
         if (currentInstance) {
