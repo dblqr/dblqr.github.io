@@ -45,6 +45,17 @@ function createScanner(deps) {
         }
     }
 
+    function isPermissionError(errorMsg) {
+        return ['Permission', 'NotAllowedError', 'not allowed']
+            .some(keyword => errorMsg?.includes(keyword));
+    }
+
+    /**
+     * State diagram:
+     * Initial → (success) → camera running
+     * Initial → (denied) → permissionDenied=true → show retry
+     * Retry → clear state → try again
+     */
     function startCamera() {
         // Check if permission was already denied in this session
         if (getCameraPermissionState()) {
@@ -62,7 +73,7 @@ function createScanner(deps) {
         ).catch(err => {
             const errorMsg = err.message || '';
             // Check if error is related to permission/NotAllowedError
-            if (errorMsg.includes('Permission') || errorMsg.includes('NotAllowedError') || errorMsg.includes('not allowed')) {
+            if (isPermissionError(errorMsg)) {
                 setCameraPermissionState(true);
                 permissionDenied = true;
                 updateScannerUI();
