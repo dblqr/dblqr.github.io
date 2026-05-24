@@ -46,8 +46,9 @@ function createScanner(deps) {
     }
 
     function isPermissionError(errorMsg) {
-        return ['Permission', 'NotAllowedError', 'not allowed']
-            .some(keyword => errorMsg?.includes(keyword));
+        const msg = (errorMsg || '').toLowerCase();
+        return ['permission', 'notallowed', 'not allowed', 'notfound']
+            .some(keyword => msg.includes(keyword));
     }
 
     /**
@@ -71,7 +72,7 @@ function createScanner(deps) {
             onScanSuccess,
             () => {}
         ).catch(err => {
-            const errorMsg = err.message || '';
+            const errorMsg = typeof err === 'string' ? err : (err?.message || err?.name || String(err));
             // Check if error is related to permission/NotAllowedError
             if (isPermissionError(errorMsg)) {
                 setCameraPermissionState(true);

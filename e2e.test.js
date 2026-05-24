@@ -79,7 +79,7 @@ test.describe('localStorage persistence', () => {
   test('codes survive a page reload', async ({ page }) => {
     await fillCode(page, 0, 'persist1');
     await fillCode(page, 1, 'persist2');
-    await page.locator('.qr-display > div.visible').first().waitFor();
+    await expect(page.locator('.qr-display > div.visible')).toHaveCount(2);
 
     await page.reload();
     await page.locator('#friend-code-form input').first().waitFor();
@@ -274,14 +274,14 @@ test.describe('Camera permission handling', () => {
   test('close button works when camera access is denied', async ({ page }) => {
     // Simulate camera permission denial by blocking camera
     await page.context().grantPermissions([], { origin: new URL(page.url()).origin });
-    
+
     await page.locator('#import-codes').click();
     const dialog = page.locator('#scanner-dialog');
     await expect(dialog).toBeVisible();
-    
-    // Wait a moment for camera access attempt
-    await page.waitForTimeout(500);
-    
+
+    // Wait for the async permission denial to complete
+    await expect(page.locator('#scanner-retry-btn')).toBeVisible();
+
     // Close button should still be clickable
     await page.locator('#scanner-close').click();
     await expect(dialog).toBeHidden({ timeout: 5000 });
@@ -290,14 +290,16 @@ test.describe('Camera permission handling', () => {
   test('upload button is visible when camera access is denied', async ({ page }) => {
     // Simulate camera permission denial
     await page.context().grantPermissions([], { origin: new URL(page.url()).origin });
-    
+
     await page.locator('#import-codes').click();
-    await page.waitForTimeout(500);
-    
+
+    // Wait for the async permission denial to complete
+    await expect(page.locator('#scanner-retry-btn')).toBeVisible();
+
     // Upload button should be visible
     const uploadBtn = page.locator('#scanner-upload-btn');
     await expect(uploadBtn).toBeVisible();
-    
+
     // Upload section should be visible as fallback
     const uploadSection = page.locator('#scanner-upload-section');
     await expect(uploadSection).toBeVisible();
@@ -306,30 +308,30 @@ test.describe('Camera permission handling', () => {
   test('retry button appears when camera access is denied', async ({ page }) => {
     // Simulate camera permission denial
     await page.context().grantPermissions([], { origin: new URL(page.url()).origin });
-    
+
     await page.locator('#import-codes').click();
-    await page.waitForTimeout(500);
-    
+
     // Retry button should be visible
     const retryBtn = page.locator('#scanner-retry-btn');
-    const retryBtnDisplay = await retryBtn.evaluate((el) => window.getComputedStyle(el).display);
-    expect(retryBtnDisplay).not.toBe('none');
+    await expect(retryBtn).toBeVisible();
   });
 
   test('permission state persists in sessionStorage', async ({ page }) => {
     // Simulate camera permission denial
     await page.context().grantPermissions([], { origin: new URL(page.url()).origin });
-    
+
     await page.locator('#import-codes').click();
-    await page.waitForTimeout(500);
-    
+
+    // Wait for the async permission denial to update state
+    await expect(page.locator('#scanner-retry-btn')).toBeVisible();
+
     // Check sessionStorage for camera permission denial flag
     const permissionDenied = await page.evaluate(() => sessionStorage.getItem('cameraPermissionDenied'));
     expect(permissionDenied).toBe('true');
-    
+
     // Close dialog
     await page.locator('#scanner-close').click();
-    
+
     // Permission state should still be in sessionStorage
     const permissionDeniedAfter = await page.evaluate(() => sessionStorage.getItem('cameraPermissionDenied'));
     expect(permissionDeniedAfter).toBe('true');
@@ -338,29 +340,29 @@ test.describe('Camera permission handling', () => {
   test('no re-prompt on new page navigation within same session', async ({ page }) => {
     // Simulate camera permission denial
     await page.context().grantPermissions([], { origin: new URL(page.url()).origin });
-    
+
     await page.locator('#import-codes').click();
-    await page.waitForTimeout(500);
+
+    // Wait for the async permission denial to update state
+    await expect(page.locator('#scanner-retry-btn')).toBeVisible();
     await page.locator('#scanner-close').click();
-    
+
     // Verify permission state is stored
     const storedState = await page.evaluate(() => sessionStorage.getItem('cameraPermissionDenied'));
     expect(storedState).toBe('true');
-    
+
     // Reload page (simulates navigation)
     await page.reload();
     await page.locator('#friend-code-form input').first().waitFor();
-    
+
     // Permission state should persist after reload
     const persistedState = await page.evaluate(() => sessionStorage.getItem('cameraPermissionDenied'));
     expect(persistedState).toBe('true');
-    
+
     // Open scanner again - it should remember the denied state
     await page.locator('#import-codes').click();
-    await page.waitForTimeout(500);
-    
-    // Upload section should be immediately visible without attempting camera
-    const uploadSection = page.locator('#scanner-upload-section');
-    await expect(uploadSection).toBeVisible();
+
+    // Should instantly have the retry button visible without attempting camera
+    await expect(page.locator('#scanner-retry-btn')).toBeVisible();
   });
 });
