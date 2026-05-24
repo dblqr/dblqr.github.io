@@ -4,7 +4,7 @@ export default defineConfig({
   testDir: '.',
   testMatch: 'e2e.test.js',
   timeout: 15000,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
     baseURL: 'http://localhost:4173',
