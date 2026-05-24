@@ -134,12 +134,22 @@ function createScanner(deps) {
 
     function closeScanner() {
         if (scannerInstance) {
-            scannerInstance.stop().then(() => {
-                scannerInstance.clear();
+            try {
+                scannerInstance.stop().then(() => {
+                    scannerInstance.clear();
+                    scannerInstance = null;
+                }).catch(() => {
+                    scannerInstance = null;
+                });
+            } catch (err) {
+                // stop() throws synchronously if not running
+                try {
+                    scannerInstance.clear();
+                } catch (e) {
+                    // ignore
+                }
                 scannerInstance = null;
-            }).catch(() => {
-                scannerInstance = null;
-            });
+            }
         }
         deps.getDialog().close();
     }
