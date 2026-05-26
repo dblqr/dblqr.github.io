@@ -251,6 +251,93 @@ test.describe('Scanner dialog', () => {
     await expect(page.locator('#scanner-dialog')).toBeHidden({ timeout: 5000 });
   });
 
+  test('denied camera permission does not block upload or close', async ({ page }) => {
+    const context = await page.context().browser().newContext();
+    await context.route('**/*html5-qrcode.min.js', route => route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      body: `
+        window.startAttempts = 0;
+        window.scanCalls = 0;
+        window.Html5Qrcode = class {
+          constructor(target) { this.target = target; }
+          start() { window.startAttempts += 1; return Promise.reject(new Error('Permission denied')); }
+          stop() { return Promise.resolve(); }
+          clear() {}
+          scanFileV2() { window.scanCalls += 1; return Promise.resolve({ decodedText: '4,abcd1234CMBSBNCPDQE' }); }
+        };
+      `,
+    }));
+    const customPage = await context.newPage();
+    await customPage.goto('/');
+
+    await customPage.locator('#import-codes').click();
+    await expect(customPage.locator('#scanner-status')).toHaveText(/Camera error/i);
+    await customPage.locator('#scanner-close').click();
+    await expect(customPage.locator('#scanner-dialog')).toBeHidden({ timeout: 5000 });
+
+    const startAttempts = await customPage.evaluate(() => window.startAttempts);
+    expect(startAttempts).toBe(1);
+
+    await context.close();
+  });
+
+  test('image upload scan does not restart camera after permission denied', async ({ page }) => {
+    const context = await page.context().browser().newContext();
+    await context.route('**/*html5-qrcode.min.js', route => route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      body: `
+        window.startAttempts = 0;
+        window.scanCalls = 0;
+        window.Html5Qrcode = class {
+          constructor(target) { this.target = target; }
+          start() { window.startAttempts += 1; return Promise.reject(new Error('Permission denied')); }
+          stop() { return Promise.resolve(); }
+          clear() {}
+          scanFileV2() {
+            window.scanCalls += 1;
+            const decodedText = window.scanCalls === 1
+              ? '4,abcd1234CMBSBNCPDQE'
+              : '4,ef56gh78CMBSBNCPDQE';
+            return Promise.resolve({ decodedText });
+          }
+        };
+      `,
+    }));
+    const customPage = await context.newPage();
+    await customPage.goto('/');
+
+    await customPage.locator('#import-codes').click();
+    await expect(customPage.locator('#scanner-status')).toHaveText(/Camera error/i);
+
+    for (let i = 0; i < 2; i += 1) {
+      const fileChooserPromise = customPage.waitForEvent('filechooser');
+      await customPage.locator('#scanner-upload-btn').click();
+      const fileChooser = await fileChooserPromise;
+      await fileChooser.setFiles({
+        name: `qr-${i + 1}.png`,
+        mimeType: 'image/png',
+        buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+      });
+      await expect(customPage.locator('#scanner-status')).toHaveText(/scanned/i);
+    }
+
+    await customPage.locator('#scanner-close').click();
+    await expect(customPage.locator('#scanner-dialog')).toBeHidden({ timeout: 5000 });
+
+    const inputs = customPage.locator('#friend-code-form input');
+    await expect(inputs.nth(0)).toHaveValue('abcd1234');
+    await expect(inputs.nth(1)).toHaveValue('ef56gh78');
+
+    const startAttempts = await customPage.evaluate(() => window.startAttempts);
+    const scanCalls = await customPage.evaluate(() => window.scanCalls);
+    expect(startAttempts).toBe(1);
+    expect(scanCalls).toBe(2);
+
+    await context.close();
+  });
+
   test('prev and next buttons change the slot', async ({ page }) => {
     await page.locator('#import-codes').click();
     await expect(page.locator('#scanner-title')).toHaveText('Scan Friend Code 1 of 6');

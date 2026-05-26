@@ -190,6 +190,46 @@ function makeMockDeps() {
     );
 }
 
+// Camera startup failure should clean up the scanner instance
+{
+    const calls = { showToast: [], getElement: {}, generateAllQRCodes: 0 };
+    const elements = {};
+    const mockHtml5Qrcode = class {
+        start() {
+            return Promise.reject(new Error('Permission denied'));
+        }
+        clear() {}
+    };
+    const deps = {
+        parseFriendCodeFromQR,
+        showToast: (msg) => calls.showToast.push(msg),
+        generateAllQRCodes: () => calls.generateAllQRCodes++,
+        getDialog: () => ({ showModal() { }, close() { } }),
+        getElement: (id) => {
+            if (!elements[id]) elements[id] = { textContent: '' };
+            return elements[id];
+        },
+        querySelectorAll: () => [
+            { value: '' },
+            { value: '' },
+            { value: '' },
+            { value: '' },
+            { value: '' },
+            { value: '' },
+        ],
+        Html5Qrcode: mockHtml5Qrcode,
+    };
+    const scanner = createScanner(deps);
+    scanner.startCamera().catch(err => {
+        assert.strictEqual(err.message, 'Permission denied', 'Camera start rejects with permission error');
+        assert.strictEqual(scanner.getScannerInstance(), null, 'Scanner instance must be cleared after camera failure');
+        assert.ok(
+            elements['scanner-status'].textContent.includes('Camera error'),
+            'Status updates with camera error message'
+        );
+    });
+}
+
 // 6th scan triggers completion
 {
     const { deps, calls } = makeMockDeps();
