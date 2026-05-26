@@ -54,6 +54,17 @@ function createScanner(deps) {
     }
 
     function startCamera() {
+        // Stop and clear any existing broken instance before creating a new one
+        if (scannerInstance) {
+            try {
+                scannerInstance.stop();
+                scannerInstance.clear();
+            } catch (_e) {
+                // ignore cleanup errors
+            }
+            scannerInstance = null;
+        }
+
         scannerInstance = new deps.Html5Qrcode('scanner-viewfinder');
         return scannerInstance.start(
             { facingMode: 'environment' },
