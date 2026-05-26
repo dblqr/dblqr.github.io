@@ -203,15 +203,22 @@ function makeMockDeps() {
 // Camera startup failure should clean up the scanner instance and show denied state
 {
     const { deps, elements } = makeMockDeps();
+    const targetState = {};
     const mockHtml5Qrcode = class {
+        constructor(target) {
+            this.target = target;
+        }
         start() {
+            if (!targetState[this.target]) {
+                targetState[this.target] = false;
+            }
             const error = new Error();
             error.name = 'NotAllowedError';
             error.message = undefined;
             return Promise.reject(error);
         }
         stop() { return Promise.resolve(); }
-        clear() {}
+        clear() { targetState[this.target] = true; }
     };
     deps.Html5Qrcode = mockHtml5Qrcode;
     const scanner = createScanner(deps);
@@ -235,15 +242,24 @@ function makeMockDeps() {
 {
     const { deps, elements } = makeMockDeps();
     let attempts = 0;
+    const targetState = {}; // Track cleanup state per target
     const mockHtml5Qrcode = class {
+        constructor(target) {
+            this.target = target;
+        }
         start() {
             attempts += 1;
+            // Simulate: can't start if a previous instance on this target wasn't cleared
+            if (attempts > 1 && !targetState[this.target]) {
+                return Promise.reject(new Error('Cannot reinitialize without clearing previous instance'));
+            }
+            targetState[this.target] = false; // Mark as "not cleared" after starting
             return attempts === 1
                 ? Promise.reject(Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' }))
                 : Promise.resolve();
         }
         stop() { return Promise.resolve(); }
-        clear() {}
+        clear() { targetState[this.target] = true; } // Mark as "cleared"
     };
     deps.Html5Qrcode = mockHtml5Qrcode;
     const scanner = createScanner(deps);
@@ -269,15 +285,22 @@ function makeMockDeps() {
 // Denied message should persist when moving between scan slots
 {
     const { deps, elements } = makeMockDeps();
+    const targetState = {};
     const mockHtml5Qrcode = class {
+        constructor(target) {
+            this.target = target;
+        }
         start() {
+            if (!targetState[this.target]) {
+                targetState[this.target] = false; // Mark as "not cleared"
+            }
             const error = new Error();
             error.name = 'NotAllowedError';
             error.message = undefined;
             return Promise.reject(error);
         }
         stop() { return Promise.resolve(); }
-        clear() {}
+        clear() { targetState[this.target] = true; }
     };
     deps.Html5Qrcode = mockHtml5Qrcode;
     const scanner = createScanner(deps);

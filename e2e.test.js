@@ -259,11 +259,20 @@ test.describe('Scanner dialog', () => {
       body: `
         window.startAttempts = 0;
         window.scanCalls = 0;
+        window.targetState = {};
         window.Html5Qrcode = class {
-          constructor(target) { this.target = target; }
-          start() { window.startAttempts += 1; return Promise.reject(Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' })); }
+          constructor(target) {
+            this.target = target;
+          }
+          start() {
+            window.startAttempts += 1;
+            if (!window.targetState[this.target]) {
+              window.targetState[this.target] = false;
+            }
+            return Promise.reject(Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' }));
+          }
           stop() { return Promise.resolve(); }
-          clear() {}
+          clear() { window.targetState[this.target] = true; }
           scanFileV2() { window.scanCalls += 1; return Promise.resolve({ decodedText: '4,abcd1234CMBSBNCPDQE' }); }
         };
       `,
@@ -297,17 +306,26 @@ test.describe('Scanner dialog', () => {
       contentType: 'application/javascript',
       body: `
         window.startAttempts = 0;
+        window.targetState = {};
         window.Html5Qrcode = class {
-          constructor(target) { this.target = target; }
+          constructor(target) {
+            this.target = target;
+          }
           start() {
             window.startAttempts += 1;
+            if (!window.targetState[this.target]) {
+              window.targetState[this.target] = false;
+            }
+            if (window.startAttempts > 1 && !window.targetState[this.target]) {
+              return Promise.reject(new Error('Cannot reinitialize without clearing previous instance'));
+            }
+            window.targetState[this.target] = false;
             return window.startAttempts === 1
               ? Promise.reject(Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' }))
               : Promise.resolve();
           }
           stop() { return Promise.resolve(); }
-          clear() {}
-          scanFileV2() { return Promise.resolve({ decodedText: '4,abcd1234CMBSBNCPDQE' }); }
+          clear() { window.targetState[this.target] = true; }
         };
       `,
     }));
@@ -332,11 +350,20 @@ test.describe('Scanner dialog', () => {
       body: `
         window.startAttempts = 0;
         window.scanCalls = 0;
+        window.targetState = {};
         window.Html5Qrcode = class {
-          constructor(target) { this.target = target; }
-          start() { window.startAttempts += 1; return Promise.reject(new Error('Permission denied')); }
+          constructor(target) {
+            this.target = target;
+          }
+          start() {
+            window.startAttempts += 1;
+            if (!window.targetState[this.target]) {
+              window.targetState[this.target] = false;
+            }
+            return Promise.reject(new Error('Permission denied'));
+          }
           stop() { return Promise.resolve(); }
-          clear() {}
+          clear() { window.targetState[this.target] = true; }
           scanFileV2() {
             window.scanCalls += 1;
             const decodedText = window.scanCalls === 1
