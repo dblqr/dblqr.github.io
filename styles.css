@@ -233,6 +233,36 @@ pre {
     overflow: hidden;
 }
 
+#scanner-viewfinder.scanner-disabled {
+    min-height: 120px;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+button.btn-primary {
+    margin-top: 8px;
+    background-color: #2563eb;
+    color: #ffffff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+button.btn-primary:hover {
+    background-color: #1d4ed8;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+button.btn-primary:active {
+    transform: scale(0.97);
+    background-color: #1e40af;
+}
+
 #scanner-status {
     text-align: center;
     margin-top: 10px;

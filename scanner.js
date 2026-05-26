@@ -2,13 +2,55 @@ function createScanner(deps) {
     // deps = { parseFriendCodeFromQR, showToast, generateAllQRCodes, getDialog, getElement, querySelectorAll, Html5Qrcode }
     let scannerInstance = null;
     let currentScanIndex = 0;
+    let lastCameraError = null;
     const scannedCodes = [null, null, null, null, null, null];
+
+    function setScannerUnavailable(isUnavailable) {
+        const viewfinder = deps.getElement('scanner-viewfinder');
+        if (isUnavailable) {
+            viewfinder.classList.add('scanner-disabled');
+        } else {
+            viewfinder.classList.remove('scanner-disabled');
+        }
+    }
+
+    function clearCameraErrorState() {
+        lastCameraError = null;
+        deps.getElement('scanner-retry').hidden = true;
+        setScannerUnavailable(false);
+    }
+
+    function showCameraDeniedState(errorText = 'Camera error: permissions denied') {
+        lastCameraError = errorText;
+        deps.getElement('scanner-status').textContent = lastCameraError;
+        deps.getElement('scanner-retry').hidden = false;
+        setScannerUnavailable(true);
+    }
 
     function updateScannerUI() {
         deps.getElement('scanner-title').textContent =
             `Scan Friend Code ${currentScanIndex + 1} of 6`;
+
+        if (lastCameraError) {
+            deps.getElement('scanner-status').textContent = lastCameraError;
+            deps.getElement('scanner-retry').hidden = false;
+            setScannerUnavailable(true);
+            return;
+        }
+
         deps.getElement('scanner-status').textContent =
             'Point your camera at a QR code';
+        deps.getElement('scanner-retry').hidden = true;
+        setScannerUnavailable(false);
+    }
+
+    function getCameraErrorText(err) {
+        const name = err && err.name ? err.name : '';
+        const message = err && err.message ? err.message : '';
+        const denied = /permission|denied|notallowed/i.test(name + ' ' + message);
+        return denied
+            ? 'Camera error: permissions denied'
+            : `Camera error: ${message || 'unknown error'}`;
     }
 
     function startCamera() {
@@ -19,10 +61,11 @@ function createScanner(deps) {
             onScanSuccess,
             () => {}
         ).then(() => {
+            clearCameraErrorState();
+            updateScannerUI();
             return scannerInstance;
         }).catch(err => {
-            deps.getElement('scanner-status').textContent =
-                'Camera error: ' + err.message;
+            showCameraDeniedState(getCameraErrorText(err));
             try {
                 scannerInstance.clear();
             } catch (_e) {
@@ -36,6 +79,7 @@ function createScanner(deps) {
     function openScanner() {
         currentScanIndex = 0;
         scannedCodes.fill(null);
+        clearCameraErrorState();
         deps.getDialog().showModal();
         updateScannerUI();
         startCamera().catch(() => {
@@ -81,6 +125,7 @@ function createScanner(deps) {
                 scannerInstance = null;
             });
         }
+        clearCameraErrorState();
         deps.getDialog().close();
     }
 
