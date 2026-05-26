@@ -220,6 +220,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    document.getElementById('scanner-retry').addEventListener('click', () => {
+        scanner.startCamera().catch(() => {
+            // Already handled by scanner state
+        });
+    });
+
     document.getElementById('scanner-prev').addEventListener('click', () => {
         scanner.prevSlot();
     });

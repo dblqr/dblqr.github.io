@@ -128,6 +128,16 @@ console.log('timestamp tests passed.');
 function makeMockDeps() {
     const calls = { showToast: [], getElement: {}, generateAllQRCodes: 0 };
     const elements = {};
+    const createElement = () => ({
+        textContent: '',
+        hidden: false,
+        classList: {
+            classes: new Set(),
+            add(...names) { names.flat().forEach(name => this.classes.add(name)); },
+            remove(...names) { names.flat().forEach(name => this.classes.delete(name)); },
+            contains(name) { return this.classes.has(name); },
+        },
+    });
     return {
         deps: {
             parseFriendCodeFromQR,
@@ -135,7 +145,7 @@ function makeMockDeps() {
             generateAllQRCodes: () => calls.generateAllQRCodes++,
             getDialog: () => ({ showModal() { }, close() { } }),
             getElement: (id) => {
-                if (!elements[id]) elements[id] = { textContent: '' };
+                if (!elements[id]) elements[id] = createElement();
                 return elements[id];
             },
             querySelectorAll: () => [
@@ -190,42 +200,94 @@ function makeMockDeps() {
     );
 }
 
-// Camera startup failure should clean up the scanner instance
+// Camera startup failure should clean up the scanner instance and show denied state
 {
-    const calls = { showToast: [], getElement: {}, generateAllQRCodes: 0 };
-    const elements = {};
+    const { deps, elements } = makeMockDeps();
     const mockHtml5Qrcode = class {
         start() {
-            return Promise.reject(new Error('Permission denied'));
+            const error = new Error();
+            error.name = 'NotAllowedError';
+            error.message = undefined;
+            return Promise.reject(error);
         }
+        stop() { return Promise.resolve(); }
         clear() {}
     };
-    const deps = {
-        parseFriendCodeFromQR,
-        showToast: (msg) => calls.showToast.push(msg),
-        generateAllQRCodes: () => calls.generateAllQRCodes++,
-        getDialog: () => ({ showModal() { }, close() { } }),
-        getElement: (id) => {
-            if (!elements[id]) elements[id] = { textContent: '' };
-            return elements[id];
-        },
-        querySelectorAll: () => [
-            { value: '' },
-            { value: '' },
-            { value: '' },
-            { value: '' },
-            { value: '' },
-            { value: '' },
-        ],
-        Html5Qrcode: mockHtml5Qrcode,
-    };
+    deps.Html5Qrcode = mockHtml5Qrcode;
     const scanner = createScanner(deps);
     scanner.startCamera().catch(err => {
-        assert.strictEqual(err.message, 'Permission denied', 'Camera start rejects with permission error');
+        assert.strictEqual(err.name, 'NotAllowedError', 'Camera start rejects with permission denied error');
         assert.strictEqual(scanner.getScannerInstance(), null, 'Scanner instance must be cleared after camera failure');
+        assert.strictEqual(
+            elements['scanner-status'].textContent,
+            'Camera error: permissions denied',
+            'Denied permission uses a friendly error message'
+        );
+        assert.strictEqual(elements['scanner-retry'].hidden, false, 'Retry button is visible after denial');
         assert.ok(
-            elements['scanner-status'].textContent.includes('Camera error'),
-            'Status updates with camera error message'
+            elements['scanner-viewfinder'].classList.contains('scanner-disabled'),
+            'Viewfinder should shrink when camera is unavailable'
+        );
+    });
+}
+
+// Camera retry clears the denied state when permissions are re-enabled
+{
+    const { deps, elements } = makeMockDeps();
+    let attempts = 0;
+    const mockHtml5Qrcode = class {
+        start() {
+            attempts += 1;
+            return attempts === 1
+                ? Promise.reject(Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' }))
+                : Promise.resolve();
+        }
+        stop() { return Promise.resolve(); }
+        clear() {}
+    };
+    deps.Html5Qrcode = mockHtml5Qrcode;
+    const scanner = createScanner(deps);
+    scanner.startCamera().catch(() => {
+        assert.strictEqual(elements['scanner-status'].textContent, 'Camera error: permissions denied');
+        assert.strictEqual(elements['scanner-retry'].hidden, false, 'Retry button is visible after denial');
+        scanner.startCamera().then(() => {
+            assert.strictEqual(elements['scanner-retry'].hidden, true, 'Retry button hides after success');
+            assert.strictEqual(
+                elements['scanner-status'].textContent,
+                'Point your camera at a QR code',
+                'Scanner status resets after permissions are granted'
+            );
+            assert.strictEqual(
+                elements['scanner-viewfinder'].classList.contains('scanner-disabled'),
+                false,
+                'Viewfinder returns to normal after success'
+            );
+        });
+    });
+}
+
+// Denied message should persist when moving between scan slots
+{
+    const { deps, elements } = makeMockDeps();
+    const mockHtml5Qrcode = class {
+        start() {
+            const error = new Error();
+            error.name = 'NotAllowedError';
+            error.message = undefined;
+            return Promise.reject(error);
+        }
+        stop() { return Promise.resolve(); }
+        clear() {}
+    };
+    deps.Html5Qrcode = mockHtml5Qrcode;
+    const scanner = createScanner(deps);
+    scanner.startCamera().catch(() => {
+        scanner.nextSlot();
+        scanner.prevSlot();
+        assert.strictEqual(
+            elements['scanner-status'].textContent,
+            'Camera error: permissions denied',
+            'Permissions denied status persists across slot navigation'
         );
     });
 }

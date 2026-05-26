@@ -251,7 +251,7 @@ test.describe('Scanner dialog', () => {
     await expect(page.locator('#scanner-dialog')).toBeHidden({ timeout: 5000 });
   });
 
-  test('denied camera permission does not block upload or close', async ({ page }) => {
+  test('denied camera permission shows friendly message and retry button', async ({ page }) => {
     const context = await page.context().browser().newContext();
     await context.route('**/*html5-qrcode.min.js', route => route.fulfill({
       status: 200,
@@ -261,7 +261,7 @@ test.describe('Scanner dialog', () => {
         window.scanCalls = 0;
         window.Html5Qrcode = class {
           constructor(target) { this.target = target; }
-          start() { window.startAttempts += 1; return Promise.reject(new Error('Permission denied')); }
+          start() { window.startAttempts += 1; return Promise.reject(Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' })); }
           stop() { return Promise.resolve(); }
           clear() {}
           scanFileV2() { window.scanCalls += 1; return Promise.resolve({ decodedText: '4,abcd1234CMBSBNCPDQE' }); }
@@ -272,12 +272,54 @@ test.describe('Scanner dialog', () => {
     await customPage.goto('/');
 
     await customPage.locator('#import-codes').click();
-    await expect(customPage.locator('#scanner-status')).toHaveText(/Camera error/i);
+    await expect(customPage.locator('#scanner-status')).toHaveText('Camera error: permissions denied');
+    await expect(customPage.locator('#scanner-retry')).toBeVisible();
+    await expect(customPage.locator('#scanner-viewfinder')).toHaveClass(/scanner-disabled/);
+
+    await customPage.locator('#scanner-prev').click();
+    await expect(customPage.locator('#scanner-status')).toHaveText('Camera error: permissions denied');
+    await customPage.locator('#scanner-next').click();
+    await expect(customPage.locator('#scanner-status')).toHaveText('Camera error: permissions denied');
+
     await customPage.locator('#scanner-close').click();
     await expect(customPage.locator('#scanner-dialog')).toBeHidden({ timeout: 5000 });
 
     const startAttempts = await customPage.evaluate(() => window.startAttempts);
     expect(startAttempts).toBe(1);
+
+    await context.close();
+  });
+
+  test('retry button restores camera view when permissions are re-enabled', async ({ page }) => {
+    const context = await page.context().browser().newContext();
+    await context.route('**/*html5-qrcode.min.js', route => route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      body: `
+        window.startAttempts = 0;
+        window.Html5Qrcode = class {
+          constructor(target) { this.target = target; }
+          start() {
+            window.startAttempts += 1;
+            return window.startAttempts === 1
+              ? Promise.reject(Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' }))
+              : Promise.resolve();
+          }
+          stop() { return Promise.resolve(); }
+          clear() {}
+          scanFileV2() { return Promise.resolve({ decodedText: '4,abcd1234CMBSBNCPDQE' }); }
+        };
+      `,
+    }));
+    const customPage = await context.newPage();
+    await customPage.goto('/');
+
+    await customPage.locator('#import-codes').click();
+    await expect(customPage.locator('#scanner-status')).toHaveText('Camera error: permissions denied');
+    await customPage.locator('#scanner-retry').click();
+    await expect(customPage.locator('#scanner-retry')).toBeHidden();
+    await expect(customPage.locator('#scanner-status')).toHaveText('Point your camera at a QR code');
+    await expect(customPage.locator('#scanner-viewfinder')).not.toHaveClass(/scanner-disabled/);
 
     await context.close();
   });
