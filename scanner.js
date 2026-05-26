@@ -54,7 +54,8 @@ function createScanner(deps) {
     }
 
     function startCamera() {
-        // Stop and clear any existing broken instance before creating a new one
+        // Clean up any existing instance before creating a new one
+        // This is critical for proper Html5Qrcode reinitialization on retry
         if (scannerInstance) {
             try {
                 scannerInstance.stop();
