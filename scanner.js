@@ -13,14 +13,23 @@ function createScanner(deps) {
 
     function startCamera() {
         scannerInstance = new deps.Html5Qrcode('scanner-viewfinder');
-        scannerInstance.start(
+        return scannerInstance.start(
             { facingMode: 'environment' },
             { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
             onScanSuccess,
             () => {}
-        ).catch(err => {
+        ).then(() => {
+            return scannerInstance;
+        }).catch(err => {
             deps.getElement('scanner-status').textContent =
                 'Camera error: ' + err.message;
+            try {
+                scannerInstance.clear();
+            } catch (_e) {
+                // ignore cleanup errors
+            }
+            scannerInstance = null;
+            return Promise.reject(err);
         });
     }
 
@@ -29,7 +38,9 @@ function createScanner(deps) {
         scannedCodes.fill(null);
         deps.getDialog().showModal();
         updateScannerUI();
-        startCamera();
+        startCamera().catch(() => {
+            // Camera failure is already shown in UI.
+        });
     }
 
     function onScanSuccess(decodedText) {

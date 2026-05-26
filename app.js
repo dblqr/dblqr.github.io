@@ -196,6 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.target.value = '';
 
         const currentInstance = scanner.getScannerInstance();
+        const hadCameraActive = !!currentInstance;
         const stopCamera = currentInstance
             ? currentInstance.stop().then(() => { currentInstance.clear(); scanner.setScannerInstance(null); }).catch(() => { scanner.setScannerInstance(null); })
             : Promise.resolve();
@@ -213,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }).then(() => {
             const state = scanner.getState();
             const dialog = document.getElementById('scanner-dialog');
-            if (state.currentScanIndex < 6 && dialog.open) {
+            if (hadCameraActive && state.currentScanIndex < 6 && dialog.open) {
                 scanner.startCamera();
             }
         });
