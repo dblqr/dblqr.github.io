@@ -14,10 +14,14 @@ export default defineConfig({
     baseURL,
     browserName: 'chromium',
     headless: true,
+    // Service workers would bypass context.route() mocks; the offline-app
+    // test opts back in with its own context.
+    serviceWorkers: 'block',
   },
   ...(shouldRunWebServer && {
     webServer: {
-      command: 'npx serve -l 4173 --no-clipboard',
+      // Test the built site (dist/), which includes the generated language pages.
+      command: 'npm run build && npx serve dist -l 4173 --no-clipboard',
       port: 4173,
       reuseExistingServer: !process.env.CI,
     },

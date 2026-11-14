@@ -1,8 +1,11 @@
 const SLOT_COUNT = 6;
 
+const scannerTranslate = typeof translate === 'function' ? translate : require('./i18n.js').translate;
+
 function createScanner(deps) {
     // deps = { parseFriendCodeFromQR, showToast, generateAllQRCodes, getDialog, getElement,
-    //          querySelectorAll, Html5Qrcode, vibrate? }
+    //          querySelectorAll, Html5Qrcode, vibrate?, t? }
+    const t = deps.t || ((key, params) => scannerTranslate('en', key, params));
     let scannerInstance = null;
     // Bumped on every camera start and stop. A start that resolves after the
     // generation has moved on (the scanner was closed or restarted while the
@@ -30,7 +33,7 @@ function createScanner(deps) {
         setScannerUnavailable(false);
     }
 
-    function showCameraDeniedState(errorText = 'Camera error: permissions denied') {
+    function showCameraDeniedState(errorText = t('scanner.permissionDenied')) {
         lastCameraError = errorText;
         deps.getElement('scanner-status').textContent = lastCameraError;
         deps.getElement('scanner-retry').hidden = false;
@@ -53,9 +56,9 @@ function createScanner(deps) {
     function updateScannerUI() {
         if (currentScanIndex >= SLOT_COUNT) return;
         const replaced = slotCode(currentScanIndex);
+        const titleParams = { slot: currentScanIndex + 1, total: SLOT_COUNT, code: replaced };
         deps.getElement('scanner-title').textContent =
-            `Scan Friend Code ${currentScanIndex + 1} of ${SLOT_COUNT}` +
-            (replaced ? ` (replaces ${replaced})` : '');
+            t(replaced ? 'scanner.titleReplace' : 'scanner.title', titleParams);
 
         if (lastCameraError) {
             deps.getElement('scanner-status').textContent = lastCameraError;
@@ -64,8 +67,7 @@ function createScanner(deps) {
             return;
         }
 
-        deps.getElement('scanner-status').textContent =
-            'Point your camera at a QR code';
+        deps.getElement('scanner-status').textContent = t('scanner.point');
         deps.getElement('scanner-retry').hidden = true;
         setScannerUnavailable(false);
     }
@@ -75,8 +77,8 @@ function createScanner(deps) {
         const message = err && err.message ? err.message : '';
         const denied = /permission|denied|notallowed/i.test(name + ' ' + message);
         return denied
-            ? 'Camera error: permissions denied'
-            : `Camera error: ${message || 'unknown error'}`;
+            ? t('scanner.permissionDenied')
+            : t('scanner.cameraError', { message: message || t('scanner.unknownError') });
     }
 
     // Stop and clear one instance without ever throwing. Html5Qrcode.stop()
@@ -159,8 +161,7 @@ function createScanner(deps) {
         const friendCode = deps.parseFriendCodeFromQR(decodedText);
 
         if (!friendCode) {
-            deps.getElement('scanner-status').textContent =
-                'Invalid QR code format. Try another.';
+            deps.getElement('scanner-status').textContent = t('scanner.invalid');
             return;
         }
 
@@ -169,14 +170,12 @@ function createScanner(deps) {
         if (friendCode === lastScannedCode) return;
 
         if (scannedCodes.includes(friendCode)) {
-            deps.getElement('scanner-status').textContent =
-                'Already scanned this code. Try a different one.';
+            deps.getElement('scanner-status').textContent = t('scanner.alreadyScanned');
             return;
         }
 
         if (existingCodes.includes(friendCode)) {
-            deps.getElement('scanner-status').textContent =
-                'That code is already in your list. Try a different one.';
+            deps.getElement('scanner-status').textContent = t('scanner.alreadyInList');
             return;
         }
 
@@ -194,8 +193,7 @@ function createScanner(deps) {
         currentScanIndex = nextEmpty;
         updateScannerUI();
         const count = scannedCodes.filter(Boolean).length;
-        deps.getElement('scanner-status').textContent =
-            `Code ${count} scanned! Point at the next QR code.`;
+        deps.getElement('scanner-status').textContent = t('scanner.scannedNext', { count });
     }
 
     // Apply scanned codes to the form exactly once per session, however the
@@ -207,11 +205,11 @@ function createScanner(deps) {
         if (count === 0) return;
         applyScanResults();
         if (firstEmptySlot() !== -1) {
-            deps.showToast(`${count} code(s) imported`);
+            deps.showToast(t('scanner.imported', { count }));
         } else if (count === SLOT_COUNT) {
-            deps.showToast(`All ${SLOT_COUNT} friend codes scanned!`);
+            deps.showToast(t('scanner.allScanned', { total: SLOT_COUNT }));
         } else {
-            deps.showToast(`${count} code(s) imported. All slots are full.`);
+            deps.showToast(t('scanner.importedFull', { count }));
         }
     }
 
