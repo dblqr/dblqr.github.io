@@ -28,4 +28,28 @@ function parseFriendCodeFromQR(qrData) {
     return null;
 }
 
-if (typeof module !== 'undefined') module.exports = { DblTimestampHelper, parseFriendCodeFromQR };
+// A normalized friend code: exactly 8 lowercase letters or digits.
+function isValidFriendCode(code) {
+    return typeof code === 'string' && /^[a-z0-9]{8}$/.test(code);
+}
+
+// Pull every friend code out of free text (an exported .txt, pasted QR data,
+// a profile link, ...). Tokens are whitespace-separated; a token that isn't a
+// recognised format by itself is also tried as a comma-separated list, so
+// "4,{code}{timestamp}" keeps its comma but "code1,code2" still splits.
+function extractFriendCodes(text) {
+    if (typeof text !== 'string') return [];
+    const codes = [];
+    for (const token of text.split(/\s+/).filter(Boolean)) {
+        const whole = parseFriendCodeFromQR(token);
+        const parts = whole ? [whole] : token.split(',').map(parseFriendCodeFromQR);
+        for (const code of parts) {
+            if (code && !codes.includes(code)) codes.push(code);
+        }
+    }
+    return codes;
+}
+
+if (typeof module !== 'undefined') {
+    module.exports = { DblTimestampHelper, parseFriendCodeFromQR, isValidFriendCode, extractFriendCodes };
+}

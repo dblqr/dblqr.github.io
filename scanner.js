@@ -1,9 +1,19 @@
+const SLOT_COUNT = 6;
+
 function createScanner(deps) {
-    // deps = { parseFriendCodeFromQR, showToast, generateAllQRCodes, getDialog, getElement, querySelectorAll, Html5Qrcode }
+    // deps = { parseFriendCodeFromQR, showToast, generateAllQRCodes, getDialog, getElement,
+    //          querySelectorAll, Html5Qrcode, vibrate? }
     let scannerInstance = null;
+    // Bumped on every camera start and stop. A start that resolves after the
+    // generation has moved on (the scanner was closed or restarted while the
+    // camera was still starting) stops itself instead of running unseen.
+    let cameraGeneration = 0;
     let currentScanIndex = 0;
     let lastCameraError = null;
-    const scannedCodes = [null, null, null, null, null, null];
+    let lastScannedCode = null;
+    let finished = false;
+    const scannedCodes = new Array(SLOT_COUNT).fill(null);
+    let existingCodes = new Array(SLOT_COUNT).fill('');
 
     function setScannerUnavailable(isUnavailable) {
         const viewfinder = deps.getElement('scanner-viewfinder');
@@ -27,9 +37,25 @@ function createScanner(deps) {
         setScannerUnavailable(true);
     }
 
+    function slotCode(index) {
+        return scannedCodes[index] || existingCodes[index] || null;
+    }
+
+    // First slot at or after `from` (wrapping) with no saved or scanned code, or -1.
+    function firstEmptySlot(from = 0) {
+        for (let offset = 0; offset < SLOT_COUNT; offset++) {
+            const index = (from + offset) % SLOT_COUNT;
+            if (!slotCode(index)) return index;
+        }
+        return -1;
+    }
+
     function updateScannerUI() {
+        if (currentScanIndex >= SLOT_COUNT) return;
+        const replaced = slotCode(currentScanIndex);
         deps.getElement('scanner-title').textContent =
-            `Scan Friend Code ${currentScanIndex + 1} of 6`;
+            `Scan Friend Code ${currentScanIndex + 1} of ${SLOT_COUNT}` +
+            (replaced ? ` (replaces ${replaced})` : '');
 
         if (lastCameraError) {
             deps.getElement('scanner-status').textContent = lastCameraError;
@@ -53,44 +79,74 @@ function createScanner(deps) {
             : `Camera error: ${message || 'unknown error'}`;
     }
 
-    function startCamera() {
-        // Clean up any existing instance before creating a new one
-        // This is critical for proper Html5Qrcode reinitialization on retry
-        if (scannerInstance) {
-            try {
-                scannerInstance.stop();
-                scannerInstance.clear();
-            } catch (_e) {
-                // ignore cleanup errors
-            }
-            scannerInstance = null;
+    // Stop and clear one instance without ever throwing. Html5Qrcode.stop()
+    // throws synchronously when the camera is not scanning yet (for example
+    // while the permission prompt is open); the generation check in
+    // startCamera() stops such a camera once it finishes starting.
+    function releaseInstance(instance) {
+        let stopping;
+        try {
+            stopping = Promise.resolve(instance.stop());
+        } catch (_e) {
+            return Promise.resolve();
         }
+        return stopping
+            .then(() => {
+                try { instance.clear(); } catch (_e) { /* ignore cleanup errors */ }
+            })
+            .catch(() => { /* already stopped */ });
+    }
 
-        scannerInstance = new deps.Html5Qrcode('scanner-viewfinder');
-        return scannerInstance.start(
+    function stopCamera() {
+        cameraGeneration++;
+        const instance = scannerInstance;
+        scannerInstance = null;
+        return instance ? releaseInstance(instance) : Promise.resolve();
+    }
+
+    function startCamera() {
+        // Release any existing instance first; Html5Qrcode cannot reinitialize
+        // a target that was not cleared.
+        stopCamera();
+        const generation = cameraGeneration;
+        const instance = new deps.Html5Qrcode('scanner-viewfinder');
+        scannerInstance = instance;
+        return instance.start(
             { facingMode: 'environment' },
             { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
             onScanSuccess,
             () => {}
         ).then(() => {
+            if (generation !== cameraGeneration) {
+                releaseInstance(instance);
+                return null;
+            }
             clearCameraErrorState();
             updateScannerUI();
-            return scannerInstance;
+            return instance;
         }).catch(err => {
-            showCameraDeniedState(getCameraErrorText(err));
+            if (generation === cameraGeneration) {
+                showCameraDeniedState(getCameraErrorText(err));
+                scannerInstance = null;
+            }
             try {
-                scannerInstance.clear();
+                instance.clear();
             } catch (_e) {
                 // ignore cleanup errors
             }
-            scannerInstance = null;
             return Promise.reject(err);
         });
     }
 
     function openScanner() {
-        currentScanIndex = 0;
+        finished = false;
+        lastScannedCode = null;
         scannedCodes.fill(null);
+        existingCodes = Array.from(deps.querySelectorAll('#friend-code-form input'))
+            .map(input => input.value.trim().toLowerCase());
+        while (existingCodes.length < SLOT_COUNT) existingCodes.push('');
+        const firstEmpty = firstEmptySlot();
+        currentScanIndex = firstEmpty === -1 ? 0 : firstEmpty;
         clearCameraErrorState();
         deps.getDialog().showModal();
         updateScannerUI();
@@ -108,37 +164,68 @@ function createScanner(deps) {
             return;
         }
 
+        // The camera keeps seeing the code it just read; ignore those repeats
+        // so the success message stays visible.
+        if (friendCode === lastScannedCode) return;
+
         if (scannedCodes.includes(friendCode)) {
             deps.getElement('scanner-status').textContent =
                 'Already scanned this code. Try a different one.';
             return;
         }
 
-        scannedCodes[currentScanIndex] = friendCode;
-        currentScanIndex++;
-
-        if (currentScanIndex >= 6) {
-            closeScanner();
-            applyScanResults();
-            deps.showToast('All 6 friend codes scanned!');
-        } else {
-            updateScannerUI();
+        if (existingCodes.includes(friendCode)) {
             deps.getElement('scanner-status').textContent =
-                `Code ${currentScanIndex} scanned! Point at the next QR code.`;
+                'That code is already in your list. Try a different one.';
+            return;
+        }
+
+        scannedCodes[currentScanIndex] = friendCode;
+        lastScannedCode = friendCode;
+        if (deps.vibrate) deps.vibrate(50);
+
+        const nextEmpty = firstEmptySlot(currentScanIndex + 1);
+        if (nextEmpty === -1) {
+            currentScanIndex = SLOT_COUNT;
+            closeScanner();
+            return;
+        }
+
+        currentScanIndex = nextEmpty;
+        updateScannerUI();
+        const count = scannedCodes.filter(Boolean).length;
+        deps.getElement('scanner-status').textContent =
+            `Code ${count} scanned! Point at the next QR code.`;
+    }
+
+    // Apply scanned codes to the form exactly once per session, however the
+    // dialog ends up closed (completion, X button, or Escape).
+    function finish() {
+        if (finished) return;
+        finished = true;
+        const count = scannedCodes.filter(Boolean).length;
+        if (count === 0) return;
+        applyScanResults();
+        if (firstEmptySlot() !== -1) {
+            deps.showToast(`${count} code(s) imported`);
+        } else if (count === SLOT_COUNT) {
+            deps.showToast(`All ${SLOT_COUNT} friend codes scanned!`);
+        } else {
+            deps.showToast(`${count} code(s) imported. All slots are full.`);
         }
     }
 
     function closeScanner() {
-        if (scannerInstance) {
-            scannerInstance.stop().then(() => {
-                scannerInstance.clear();
-                scannerInstance = null;
-            }).catch(() => {
-                scannerInstance = null;
-            });
-        }
+        stopCamera();
         clearCameraErrorState();
         deps.getDialog().close();
+        finish();
+    }
+
+    // Handler for the dialog's native `close` event (Escape key).
+    function handleDialogClose() {
+        stopCamera();
+        finish();
     }
 
     function applyScanResults() {
@@ -150,12 +237,12 @@ function createScanner(deps) {
     }
 
     function nextSlot() {
-        currentScanIndex = (currentScanIndex + 1) % 6;
+        currentScanIndex = (currentScanIndex + 1) % SLOT_COUNT;
         updateScannerUI();
     }
 
     function prevSlot() {
-        currentScanIndex = (currentScanIndex - 1 + 6) % 6;
+        currentScanIndex = (currentScanIndex - 1 + SLOT_COUNT) % SLOT_COUNT;
         updateScannerUI();
     }
 
@@ -167,22 +254,19 @@ function createScanner(deps) {
         return scannerInstance;
     }
 
-    function setScannerInstance(instance) {
-        scannerInstance = instance;
-    }
-
     return {
         openScanner,
         closeScanner,
+        handleDialogClose,
         startCamera,
+        stopCamera,
         onScanSuccess,
         applyScanResults,
         updateScannerUI,
         nextSlot,
         prevSlot,
         getState,
-        getScannerInstance,
-        setScannerInstance
+        getScannerInstance
     };
 }
 
