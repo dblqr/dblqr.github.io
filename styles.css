@@ -37,7 +37,7 @@ h1 {
 
 .btn-desc {
     font-size: 0.7rem;
-    color: #6b7280;
+    color: #4b5563;
     margin-top: 4px;
 }
 
@@ -68,7 +68,7 @@ h1 {
 }
 
 #friend-code-form input::placeholder {
-    color: #9ca3af;
+    color: #6b7280;
     opacity: 1;
 }
 
@@ -103,7 +103,7 @@ h1 {
     transform: translateY(0);
 }
 
-pre {
+.card-label {
     background-color: #f0f1f3;
     color: #1a1a2e;
     padding: 10px;
@@ -166,12 +166,12 @@ pre {
 
 #clear-codes.btn-danger {
     background-color: transparent;
-    color: #dc2626;
-    border: 1px solid #dc2626;
+    color: #b91c1c;
+    border: 1px solid #b91c1c;
 }
 
 #clear-codes.btn-danger:hover {
-    background-color: #dc2626;
+    background-color: #b91c1c;
     color: #ffffff;
 }
 
@@ -267,7 +267,7 @@ button.btn-primary:active {
     text-align: center;
     margin-top: 10px;
     font-size: 0.9rem;
-    color: #6b7280;
+    color: #4b5563;
 }
 
 #scanner-upload-section {
@@ -280,7 +280,7 @@ button.btn-primary:active {
 #scanner-upload-section p {
     margin: 0 0 8px;
     font-size: 0.85rem;
-    color: #6b7280;
+    color: #4b5563;
 }
 
 #scanner-upload-btn {
@@ -301,7 +301,7 @@ button.btn-primary:active {
 #empty-state {
     text-align: center;
     padding: 30px 20px;
-    color: #6b7280;
+    color: #4b5563;
 }
 
 #empty-state ul {
@@ -317,7 +317,7 @@ button.btn-primary:active {
     max-width: 600px;
     margin: 40px auto 20px;
     padding: 20px 24px;
-    color: #6b7280;
+    color: #4b5563;
     font-size: 0.9rem;
     background: #ffffff;
     border: 1px solid #e5e7eb;
@@ -372,7 +372,7 @@ button.btn-primary:active {
         grid-template-columns: 1fr;
     }
 
-    pre {
+    .card-label {
         width: 90%;
     }
 }
@@ -447,7 +447,7 @@ button.btn-primary:active {
     text-align: center;
     margin: 0;
     font-size: 0.8rem;
-    color: #6b7280;
+    color: #4b5563;
     font-variant-numeric: tabular-nums;
 }
 
@@ -499,7 +499,7 @@ button.btn-primary:active {
 .qr-zoom-hint {
     margin: 12px 0 0;
     font-size: 0.8rem;
-    color: #6b7280;
+    color: #4b5563;
 }
 
 /* --- Footer and scanner tip (formerly inline styles) --- */
@@ -602,7 +602,7 @@ button.btn-primary:active {
         color: #e5e7eb;
     }
 
-    pre {
+    .card-label {
         background-color: #0f172a;
         color: #e5e7eb;
         border-color: #334155;
@@ -664,5 +664,383 @@ button.btn-primary:active {
 
     #toast-action {
         color: #1d4ed8;
+    }
+}
+
+/* --- Responsive QR grid: QR size grows on large screens, at most 3 per row --- */
+
+:root {
+    --qr-size: 200px;
+    /* card = QR + trigger padding (2 x 12px) + card padding (2 x 20px) */
+    --qr-card: calc(var(--qr-size) + 64px);
+}
+
+@media (min-width: 1200px) {
+    :root {
+        --qr-size: min(300px, 32vh);
+    }
+}
+
+.qr-display {
+    grid-template-columns: repeat(auto-fit, minmax(var(--qr-card), 1fr));
+    max-width: calc(3 * var(--qr-card) + 2 * 20px + 2px);
+    margin: 0 auto;
+}
+
+.qr-zoom-trigger canvas,
+.qr-zoom-trigger img {
+    width: var(--qr-size);
+    height: var(--qr-size);
+}
+
+.qr-display .card-label {
+    box-sizing: border-box;
+    width: calc(var(--qr-size) + 24px);
+    max-width: 100%;
+}
+
+/* --- Scanned today --- */
+
+.qr-display>div.scanned {
+    order: 1;
+}
+
+/* Dim only the QR image (images are exempt from text contrast rules). */
+.qr-display>div.scanned .qr-zoom-trigger {
+    opacity: 0.45;
+}
+
+.qr-display>div.scanned:hover .qr-zoom-trigger,
+.qr-display>div.scanned:focus-within .qr-zoom-trigger {
+    opacity: 1;
+}
+
+.scan-toggle {
+    margin-top: 8px;
+    background: none;
+    border: 1px solid #d1d5db;
+    color: inherit;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.scan-toggle[aria-pressed="true"] {
+    border-color: #16a34a;
+    color: #15803d;
+    font-weight: 600;
+}
+
+/* --- Header subtitle and footer disclaimer --- */
+
+.subtitle {
+    text-align: center;
+    margin: 0 0 4px;
+    font-size: 0.85rem;
+    color: #4b5563;
+}
+
+.disclaimer {
+    margin: 16px 0 0;
+    font-size: 0.75rem;
+    text-align: center;
+}
+
+/* --- Daily scans panel and dialog --- */
+
+#daily-panel {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 4px 16px;
+    margin: 12px auto 0;
+    padding: 0 10px;
+}
+
+#daily-panel[hidden] {
+    display: none;
+}
+
+#daily-progress {
+    margin: 8px 0 0;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+#daily-scan {
+    border: none;
+    border-radius: 16px;
+    padding: 20px 24px 24px;
+    width: min(560px, 92vw);
+    box-sizing: border-box;
+    background: #ffffff;
+    color: #1a1a2e;
+    text-align: center;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+#daily-scan::backdrop {
+    background: rgba(0, 0, 0, 0.85);
+}
+
+.daily-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.daily-header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+#daily-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: inherit;
+    padding: 0 4px;
+}
+
+#daily-scan-progress {
+    margin: 4px 0 12px;
+    font-size: 0.9rem;
+    color: #4b5563;
+    font-variant-numeric: tabular-nums;
+}
+
+#daily-label {
+    margin: 0 0 10px;
+    font-weight: 600;
+}
+
+#daily-code {
+    display: inline-block;
+    background: #ffffff;
+    padding: 12px;
+    border-radius: 8px;
+    line-height: 0;
+}
+
+#daily-status {
+    min-height: 1.5em;
+    margin: 8px 0 0;
+    font-size: 0.85rem;
+    color: #b45309;
+}
+
+.daily-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+.daily-actions button {
+    min-width: 140px;
+    padding: 12px 18px;
+    font-size: 16px;
+}
+
+#daily-skip {
+    margin-top: 8px;
+    background: none;
+    border: 1px solid #d1d5db;
+    color: inherit;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+@media (prefers-color-scheme: dark) {
+    .subtitle,
+    #daily-scan-progress {
+        color: #94a3b8;
+    }
+
+    #daily-scan {
+        background: #1e293b;
+        color: #e5e7eb;
+    }
+
+    .scan-toggle,
+    #daily-skip {
+        border-color: #475569;
+    }
+
+    .scan-toggle[aria-pressed="true"] {
+        border-color: #4ade80;
+        color: #4ade80;
+    }
+
+    #daily-status {
+        color: #fbbf24;
+    }
+}
+
+#daily-reset {
+    flex-basis: 100%;
+    margin: 0;
+    text-align: center;
+    font-size: 0.8rem;
+    color: #4b5563;
+}
+
+@media (prefers-color-scheme: dark) {
+    #daily-reset {
+        color: #94a3b8;
+    }
+}
+
+/* --- Language picker --- */
+
+#language-picker {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 12px 0;
+    font-size: 0.8rem;
+    color: #4b5563;
+}
+
+#language-select {
+    font: inherit;
+    padding: 4px 6px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #1a1a2e;
+}
+
+@media (prefers-color-scheme: dark) {
+    #language-picker {
+        color: #94a3b8;
+    }
+
+    #language-select {
+        background: #1e293b;
+        color: #f3f4f6;
+        border-color: #475569;
+    }
+}
+
+/* --- Accessible structure helpers --- */
+
+/* Hidden visually, still read by screen readers and search engines. */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* The friend-code boxes are a labelled <fieldset>; reset its default box. */
+#friend-code-form {
+    border: 0;
+    min-inline-size: 0;
+}
+
+.code-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.code-field label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #4b5563;
+}
+
+/* Card titles are <h3> headings now; keep the old label look. */
+.card-label {
+    margin-top: 0;
+}
+
+/* Page footer: disclaimer and support link (How It Works moved into <main>). */
+#site-footer {
+    max-width: 600px;
+    margin: 0 auto 24px;
+    padding: 0 24px;
+    color: #4b5563;
+}
+
+/* --- Respect "reduce motion" --- */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        transition-duration: 0s !important;
+        transition-delay: 0s !important;
+        animation-duration: 0s !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+    }
+
+    .qr-display>div {
+        transform: none;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    .code-field label,
+    #site-footer {
+        color: #94a3b8;
+    }
+}
+
+/* --- Collapsible How It Works --- */
+
+#how-details summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    list-style: none;
+}
+
+#how-details summary::-webkit-details-marker {
+    display: none;
+}
+
+/* Custom disclosure triangle that rotates when open */
+#how-details summary::before {
+    content: "";
+    border-style: solid;
+    border-width: 5px 0 5px 8px;
+    border-color: transparent transparent transparent currentColor;
+    color: #4b5563;
+    transition: transform 0.2s ease;
+}
+
+#how-details[open] summary::before {
+    transform: rotate(90deg);
+}
+
+#how-details summary h2 {
+    margin: 0;
+}
+
+#how-details[open] summary {
+    margin-bottom: 12px;
+}
+
+#how-details summary:focus-visible {
+    outline: 3px solid #2563eb;
+    outline-offset: 4px;
+    border-radius: 4px;
+}
+
+@media (prefers-color-scheme: dark) {
+    #how-details summary::before {
+        color: #94a3b8;
     }
 }

@@ -2,135 +2,171 @@
 <html lang="en">
 
 <head>
-    <!-- Analytics consent defaults: must run before Google Tag Manager loads.
-         Analytics stay denied until the visitor accepts in the consent banner. -->
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag() { dataLayer.push(arguments); }
-        (function () {
-            var choice = null;
-            try { choice = localStorage.getItem('analyticsConsent'); } catch (e) { }
-            gtag('consent', 'default', {
-                ad_storage: 'denied',
-                ad_user_data: 'denied',
-                ad_personalization: 'denied',
-                analytics_storage: choice === 'granted' ? 'granted' : 'denied'
-            });
-        })();
-    </script>
-    <!-- Google Tag Manager -->
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0], j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src= 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f); })(window,document,'script','dataLayer','GTM-MSLPPPW6');</script>
-    <!-- End Google Tag Manager -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Friend Code QR Generator</title>
-    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
-    <link rel="stylesheet" href="styles.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"
-        integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU"
-        crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"
-        integrity="sha384-c9d8RFSL+u3exBOJ4Yp3HUJXS4znl9f+z66d1y54ig+ea249SpqR+w1wyvXz/lk+"
-        crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
-    <script src="timestamp.js" defer></script>
-    <script src="scanner.js" defer></script>
-    <script src="app.js" defer></script>
+    <!-- GitHub Pages cannot send security headers, so the policy is set here.
+         Scripts: this site and Google Tag Manager only; no inline scripts. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://*.googletagmanager.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; img-src 'self' data: blob: https://*.google-analytics.com https://*.googletagmanager.com https://cdn.buymeacoffee.com; style-src 'self'; font-src 'self'; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta name="referrer" content="no-referrer">
+    <!-- seo:start: build.js replaces this block with a localized version per language page -->
+    <title>Shenron &amp; Porunga QR Code Generator for Dragon Ball Legends (Unofficial)</title>
+    <meta name="description" content="Generate the timestamped QR codes for the Dragon Ball Legends Shenron and Porunga Dragon Ball events from friend codes, and track your 3 daily scans. Unofficial fan tool.">
+    <link rel="canonical" href="https://dblqr.github.io/">
+    <meta property="og:title" content="Shenron &amp; Porunga QR Code Generator (Dragon Ball Legends)">
+    <!-- seo:end -->
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="stylesheet" href="/styles.css">
+    <!-- Not deferred: consent defaults must be set before Google Tag Manager starts. -->
+    <script src="/analytics.js"></script>
+    <!-- Not deferred: picks the language page before anything renders. -->
+    <script src="/i18n.js"></script>
+    <script src="/vendor/qrcode.min.js" defer></script>
+    <script src="/timestamp.js" defer></script>
+    <script src="/daily.js" defer></script>
+    <script src="/scanner.js" defer></script>
+    <script src="/app.js" defer></script>
 </head>
 
 <body>
-    <!-- Google Tag Manager (noscript) -->
-    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MSLPPPW6" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-    <!-- End Google Tag Manager (noscript) -->
     <main>
-        <h1>Friend Code QR Generator</h1>
+        <div id="language-picker">
+            <label for="language-select" data-i18n="language.label">Language</label>
+            <select id="language-select">
+                <option value="en">English</option>
+                <option value="ja">日本語</option>
+                <option value="es">Español</option>
+                <option value="pt-BR">Português (Brasil)</option>
+            </select>
+        </div>
+        <h1 data-i18n="header.title">Shenron &amp; Porunga QR Generator</h1>
+        <p class="subtitle" data-i18n="header.subtitle">For the Dragon Ball Legends Dragon Ball events · unofficial fan tool</p>
 
-        <nav id="actions">
+        <div id="actions">
             <div class="btn-group">
-                <button id="import-codes" class="btn-primary">Scan QR Codes</button>
-                <span class="btn-desc">Use camera or upload a screenshot</span>
+                <button type="button" id="import-codes" class="btn-primary" data-i18n="actions.scan">Scan QR Codes</button>
+                <span class="btn-desc" data-i18n="actions.scanDesc">Use camera or upload a screenshot</span>
             </div>
             <div class="btn-group">
-                <button id="export-codes">Export Friend Codes</button>
-                <span class="btn-desc">Save codes to a .txt file</span>
+                <button type="button" id="export-codes" data-i18n="actions.export">Export Friend Codes</button>
+                <span class="btn-desc" data-i18n="actions.exportDesc">Save codes to a .txt file</span>
             </div>
             <div class="btn-group">
-                <button id="upload-codes">Upload Friend Codes</button>
-                <span class="btn-desc">Load codes from a .txt file</span>
+                <button type="button" id="upload-codes" data-i18n="actions.upload">Upload Friend Codes</button>
+                <span class="btn-desc" data-i18n="actions.uploadDesc">Load codes from a .txt file</span>
             </div>
             <div class="btn-group">
-                <button id="manual-refresh">Manual Refresh</button>
-                <span class="btn-desc">Regenerate QR codes now</span>
+                <button type="button" id="manual-refresh" data-i18n="actions.refresh">Manual Refresh</button>
+                <span class="btn-desc" data-i18n="actions.refreshDesc">Regenerate QR codes now</span>
             </div>
             <div class="btn-group">
-                <button id="clear-codes" class="btn-danger">Clear</button>
-                <span class="btn-desc">Remove all friend codes</span>
+                <button type="button" id="clear-codes" class="btn-danger" data-i18n="actions.clear">Clear</button>
+                <span class="btn-desc" data-i18n="actions.clearDesc">Remove all friend codes</span>
             </div>
             <input type="file" id="file-input" accept=".txt" hidden>
-        </nav>
+        </div>
 
-        <form id="friend-code-form"></form>
+        <fieldset id="friend-code-form">
+            <legend class="visually-hidden" data-i18n="input.groupLabel">Friend codes</legend>
+        </fieldset>
 
         <p id="refresh-countdown" hidden></p>
 
-        <section id="empty-state" hidden>
-            <p>No friend codes added yet. Get started:</p>
-            <ul>
-                <li>Type friend codes into the fields above</li>
-                <li>Tap <strong>Scan QR Codes</strong> to scan from a friend's screen</li>
-                <li>Tap <strong>Upload Friend Codes</strong> to load from a .txt file</li>
-            </ul>
+        <section id="daily-panel" aria-labelledby="daily-panel-title" hidden>
+            <h2 id="daily-panel-title" class="visually-hidden" data-i18n="daily.title">Daily scans</h2>
+            <p id="daily-progress">Scanned today: 0 of 3</p>
+            <p id="daily-reset"></p>
+            <button id="start-daily" type="button" class="btn-primary" data-i18n="daily.start">Start daily scans</button>
         </section>
 
-        <section class="qr-display"></section>
+        <div id="empty-state" hidden>
+            <p data-i18n="empty.intro">No friend codes added yet. Get started:</p>
+            <ul>
+                <li data-i18n="empty.type">Type friend codes into the fields above</li>
+                <li data-i18n-html="empty.scan">Tap <strong>Scan QR Codes</strong> to scan from a friend's screen</li>
+                <li data-i18n-html="empty.upload">Tap <strong>Upload Friend Codes</strong> to load from a .txt file</li>
+            </ul>
+        </div>
 
-        <output id="toast" role="status" aria-live="polite"></output>
+        <section id="qr-codes" aria-labelledby="qr-heading">
+            <h2 id="qr-heading" class="visually-hidden" data-i18n="qr.sectionTitle">Your QR codes</h2>
+            <div class="qr-display"></div>
+        </section>
+
+        <output id="toast" aria-live="polite"></output>
+        <section id="how-it-works" aria-labelledby="how-title">
+            <details id="how-details">
+                <summary><h2 id="how-title" data-i18n="how.title">How It Works</h2></summary>
+                <ol>
+                    <li data-i18n="how.step1">Enter up to 6 friend codes by typing them in, scanning QR codes, or uploading a text file.</li>
+                    <li data-i18n="how.step2">The app generates a time-stamped QR code for each friend code that the Shenron and Porunga events can scan in-game.</li>
+                    <li data-i18n-html="how.step3">Each code counts once per day and the event needs 3 a day. Tap <strong>Start daily scans</strong> to step through your codes one at a time; extra codes are spares if one doesn't work. Progress resets with the game at 1:00 AM Pacific time.</li>
+                    <li data-i18n="how.step4">QR codes auto-refresh every 10 seconds to stay valid for the game. Tap a QR code to enlarge it for scanning.</li>
+                    <li data-i18n="how.step5">Share your codes with friends by exporting to a .txt file or letting them scan your screen.</li>
+                    <li data-i18n="how.step6">Downloaded QR images contain the time they were made, so they may stop working after a while. Download a fresh one when you need it.</li>
+                </ol>
+            </details>
+        </section>
     </main>
 
-    <footer id="how-it-works">
-        <h2>How It Works</h2>
-        <ol>
-            <li>Enter up to 6 friend codes by typing them in, scanning QR codes, or uploading a text file.</li>
-            <li>The app generates a time-stamped QR code for each friend code that can be scanned in-game.</li>
-            <li>QR codes auto-refresh every 10 seconds to stay valid for the game. Tap a QR code to enlarge it for scanning.</li>
-            <li>Share your codes with friends by exporting to a .txt file or letting them scan your screen.</li>
-            <li>Downloaded QR images contain the time they were made, so they may stop working after a while. Download a fresh one when you need it.</li>
-        </ol>
+    <footer id="site-footer">
+        <p class="disclaimer" data-i18n="footer.disclaimer">Unofficial fan tool. Not affiliated with Bandai Namco Entertainment. Dragon Ball Legends and related names are trademarks of their respective owners.</p>
         <div class="support-link">
-            <a href="https://www.buymeacoffee.com/srycantthnkof1" target="_blank" rel="noopener"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me a Coffee" width="217" height="60"></a>
+            <a href="https://www.buymeacoffee.com/srycantthnkof1" target="_blank" rel="noopener noreferrer"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me a Coffee" width="217" height="60" loading="lazy" decoding="async"></a>
         </div>
     </footer>
 
-    <dialog id="scanner-dialog">
-        <header id="scanner-header">
+    <dialog id="scanner-dialog" aria-labelledby="scanner-title">
+        <div id="scanner-header">
             <div id="scanner-nav">
-                <button id="scanner-prev" title="Previous" aria-label="Previous slot">&lt;</button>
+                <button type="button" id="scanner-prev" title="Previous" aria-label="Previous slot" data-i18n-attr="title:scanner.prev;aria-label:scanner.prev">&lt;</button>
                 <span id="scanner-title">Scan Friend Code 1 of 6</span>
-                <button id="scanner-next" title="Next" aria-label="Next slot">&gt;</button>
+                <button type="button" id="scanner-next" title="Next" aria-label="Next slot" data-i18n-attr="title:scanner.next;aria-label:scanner.next">&gt;</button>
             </div>
-            <button id="scanner-close" aria-label="Close scanner">&times;</button>
-        </header>
+            <button type="button" id="scanner-close" aria-label="Close scanner" data-i18n-attr="aria-label:scanner.close">&times;</button>
+        </div>
         <div id="scanner-viewfinder"></div>
-        <p id="scanner-status">Point your camera at a QR code</p>
-        <button id="scanner-retry" class="btn-primary" hidden>Re-enable camera</button>
-        <section id="scanner-upload-section">
-            <p>Or upload a screenshot of the QR code:</p>
-            <p class="scanner-tip">Tip: Use landscape orientation for player profile screenshots</p>
-            <button id="scanner-upload-btn">Upload Image</button>
+        <p id="scanner-status" data-i18n="scanner.point">Point your camera at a QR code</p>
+        <button type="button" id="scanner-retry" class="btn-primary" data-i18n="scanner.retry" hidden>Re-enable camera</button>
+        <div id="scanner-upload-section">
+            <p data-i18n="scanner.uploadPrompt">Or upload a screenshot of the QR code:</p>
+            <p class="scanner-tip" data-i18n="scanner.tip">Tip: Use landscape orientation for player profile screenshots</p>
+            <button type="button" id="scanner-upload-btn" data-i18n="scanner.uploadButton">Upload Image</button>
             <input type="file" id="scanner-file-input" accept="image/*" hidden>
-        </section>
+        </div>
+    </dialog>
+
+    <dialog id="daily-scan" aria-labelledby="daily-title">
+        <div class="daily-header">
+            <h2 id="daily-title" data-i18n="daily.title">Daily scans</h2>
+            <button id="daily-close" type="button" aria-label="Close daily scans" data-i18n-attr="aria-label:daily.close">&times;</button>
+        </div>
+        <p id="daily-scan-progress"></p>
+        <div id="daily-scanning">
+            <p id="daily-label"></p>
+            <div id="daily-code"></div>
+            <p id="daily-status" role="status"></p>
+            <div class="daily-actions">
+                <button id="daily-skip" type="button" data-i18n="daily.skip">Skip</button>
+                <button id="daily-done" type="button" class="btn-primary" data-i18n="daily.done">Scanned ✓ Next</button>
+            </div>
+        </div>
     </dialog>
 
     <dialog id="qr-zoom" aria-labelledby="qr-zoom-label">
         <p id="qr-zoom-label"></p>
         <div id="qr-zoom-code"></div>
-        <p class="qr-zoom-hint">Tap anywhere to close</p>
+        <p class="qr-zoom-hint" data-i18n="zoom.hint">Tap anywhere to close</p>
     </dialog>
 
-    <section id="consent-banner" aria-label="Analytics consent" hidden>
-        <p>This site uses Google Analytics to understand how it is used. Allow analytics cookies?</p>
+    <section id="consent-banner" aria-labelledby="consent-title" hidden>
+        <h2 id="consent-title" class="visually-hidden" data-i18n="consent.label">Analytics consent</h2>
+        <p data-i18n="consent.text">This site uses Google Analytics to understand how it is used. Allow analytics cookies?</p>
         <div class="consent-actions">
-            <button id="consent-decline" type="button">Decline</button>
-            <button id="consent-accept" type="button" class="btn-primary">Allow</button>
+            <button id="consent-decline" type="button" data-i18n="consent.decline">Decline</button>
+            <button id="consent-accept" type="button" class="btn-primary" data-i18n="consent.allow">Allow</button>
         </div>
     </section>
 </body>
