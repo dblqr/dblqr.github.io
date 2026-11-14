@@ -411,3 +411,258 @@ button.btn-primary:active {
 #scanner-prev:hover, #scanner-next:hover {
     background-color: #e5e7eb;
 }
+
+/* --- Toast action and hidden-toast click-through --- */
+
+#toast {
+    pointer-events: none;
+}
+
+#toast.show {
+    pointer-events: auto;
+}
+
+#toast-action {
+    margin-left: 8px;
+    background: none;
+    border: none;
+    color: #93c5fd;
+    font: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0;
+}
+
+/* --- Inputs: flag invalid codes once the user leaves the field --- */
+
+#friend-code-form input[aria-invalid="true"]:not(:focus) {
+    border-color: #dc2626;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+/* --- Refresh countdown --- */
+
+#refresh-countdown {
+    text-align: center;
+    margin: 0;
+    font-size: 0.8rem;
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- QR image: always black on white with a quiet zone, tap to enlarge --- */
+
+.qr-zoom-trigger,
+#qr-zoom-code {
+    background: #ffffff;
+    padding: 12px;
+    border-radius: 8px;
+    line-height: 0;
+}
+
+.qr-zoom-trigger {
+    border: none;
+    cursor: zoom-in;
+}
+
+.qr-zoom-trigger:focus-visible,
+.download-button:focus-visible {
+    outline: 3px solid #2563eb;
+    outline-offset: 2px;
+}
+
+#qr-zoom {
+    border: none;
+    border-radius: 16px;
+    padding: 20px;
+    background: #ffffff;
+    color: #1a1a2e;
+    text-align: center;
+    cursor: zoom-out;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+#qr-zoom::backdrop {
+    background: rgba(0, 0, 0, 0.85);
+}
+
+#qr-zoom-label {
+    margin: 0 0 12px;
+    font-weight: 600;
+}
+
+#qr-zoom-code {
+    display: inline-block;
+}
+
+.qr-zoom-hint {
+    margin: 12px 0 0;
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+/* --- Footer and scanner tip (formerly inline styles) --- */
+
+.support-link {
+    text-align: center;
+    margin-top: 2rem;
+}
+
+.support-link img {
+    display: inline-block;
+    max-width: 100%;
+    height: auto;
+}
+
+#scanner-upload-section p.scanner-tip {
+    font-size: 0.8rem;
+}
+
+/* --- Analytics consent banner --- */
+
+#consent-banner {
+    position: fixed;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    width: min(560px, calc(100% - 32px));
+    box-sizing: border-box;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    padding: 14px 18px;
+    background: #ffffff;
+    color: #1a1a2e;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    font-size: 0.85rem;
+}
+
+#consent-banner[hidden] {
+    display: none;
+}
+
+#consent-banner p {
+    flex: 1 1 240px;
+    margin: 0;
+}
+
+.consent-actions {
+    display: flex;
+    gap: 8px;
+}
+
+#consent-decline {
+    margin-top: 8px;
+    background: none;
+    border: 1px solid #d1d5db;
+    color: inherit;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+/* --- Dark mode --- */
+
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #0f172a;
+        color: #e5e7eb;
+    }
+
+    h1,
+    #how-it-works h2,
+    #scanner-close,
+    #scanner-prev,
+    #scanner-next {
+        color: #f3f4f6;
+    }
+
+    #friend-code-form input {
+        background-color: #1e293b;
+        color: #f3f4f6;
+        border-color: #334155;
+    }
+
+    #friend-code-form input::placeholder {
+        color: #64748b;
+    }
+
+    .qr-display>div,
+    #how-it-works,
+    #scanner-dialog,
+    #consent-banner {
+        background: #1e293b;
+        border-color: #334155;
+        color: #e5e7eb;
+    }
+
+    pre {
+        background-color: #0f172a;
+        color: #e5e7eb;
+        border-color: #334155;
+    }
+
+    .download-button,
+    #manual-refresh,
+    #export-codes,
+    #upload-codes,
+    #scanner-upload-btn {
+        background-color: #334155;
+    }
+
+    .download-button:hover,
+    #manual-refresh:hover,
+    #export-codes:hover,
+    #upload-codes:hover,
+    #scanner-upload-btn:hover {
+        background-color: #475569;
+    }
+
+    #clear-codes.btn-danger {
+        color: #f87171;
+        border-color: #f87171;
+    }
+
+    .btn-desc,
+    #empty-state,
+    #how-it-works,
+    #refresh-countdown,
+    #scanner-status,
+    #scanner-upload-section p {
+        color: #94a3b8;
+    }
+
+    #scanner-upload-section {
+        border-top-color: #334155;
+    }
+
+    #scanner-prev,
+    #scanner-next,
+    #consent-decline {
+        border-color: #475569;
+    }
+
+    #scanner-prev:hover,
+    #scanner-next:hover {
+        background-color: #334155;
+    }
+
+    #scanner-viewfinder.scanner-disabled {
+        background: #0f172a;
+    }
+
+    #toast {
+        background: #f3f4f6;
+        color: #0f172a;
+    }
+
+    #toast-action {
+        color: #1d4ed8;
+    }
+}

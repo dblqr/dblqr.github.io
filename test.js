@@ -1,7 +1,7 @@
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { DblTimestampHelper, parseFriendCodeFromQR } = require('./timestamp.js');
+const { DblTimestampHelper, parseFriendCodeFromQR, isValidFriendCode, extractFriendCodes } = require('./timestamp.js');
 const { createScanner } = require('./scanner.js');
 
 // --- DblTimestampHelper.timestampEncoding ---
@@ -121,12 +121,38 @@ assert.strictEqual(parseFriendCodeFromQR('https://example.com'), null, 'Reject U
 const roundTrip = DblTimestampHelper.buildQrData('zz99aa11');
 assert.strictEqual(parseFriendCodeFromQR(roundTrip), 'zz99aa11', 'Round-trip: build then parse');
 
+// --- isValidFriendCode ---
+
+assert.strictEqual(isValidFriendCode('abcd1234'), true, 'Valid 8-char lowercase code');
+assert.strictEqual(isValidFriendCode('abc'), false, 'Partial code is invalid');
+assert.strictEqual(isValidFriendCode('abcd123!'), false, 'Special characters are invalid');
+assert.strictEqual(isValidFriendCode('ABCD1234'), false, 'Uppercase is invalid (codes are normalized first)');
+assert.strictEqual(isValidFriendCode(''), false, 'Empty is invalid');
+assert.strictEqual(isValidFriendCode(null), false, 'Null is invalid');
+
+// --- extractFriendCodes ---
+
+assert.deepStrictEqual(extractFriendCodes('upload01\nupload02'), ['upload01', 'upload02'], 'Newline-separated codes');
+assert.deepStrictEqual(extractFriendCodes('aaaaaaaa, bbbbbbbb,cccccccc'), ['aaaaaaaa', 'bbbbbbbb', 'cccccccc'], 'Comma-separated codes');
+assert.deepStrictEqual(extractFriendCodes('4,abcd1234CMBSBNCPDQE'), ['abcd1234'], 'App QR data keeps its comma');
+assert.deepStrictEqual(extractFriendCodes('7,y6r32ak9'), ['y6r32ak9'], 'In-game scan code format');
+assert.deepStrictEqual(
+    extractFriendCodes('https://dblww.go.link?adj_t=srpood5&type=7&token=jk90mn12'),
+    ['jk90mn12'],
+    'Profile deep link'
+);
+assert.deepStrictEqual(extractFriendCodes('ABCD1234 abcd1234'), ['abcd1234'], 'Duplicates removed case-insensitively');
+assert.deepStrictEqual(extractFriendCodes('short\nvalid123\ntoolongcode\nbad!!bad'), ['valid123'], 'Invalid tokens dropped');
+assert.deepStrictEqual(extractFriendCodes(''), [], 'Empty text');
+assert.deepStrictEqual(extractFriendCodes(null), [], 'Non-string input');
+
 console.log('timestamp tests passed.');
 
 // --- createScanner tests ---
 
-function makeMockDeps() {
-    const calls = { showToast: [], getElement: {}, generateAllQRCodes: 0 };
+function makeMockDeps(initialValues = ['', '', '', '', '', '']) {
+    const calls = { showToast: [], getElement: {}, generateAllQRCodes: 0, dialogClose: 0, vibrate: [] };
+    const inputs = initialValues.map(value => ({ value }));
     const elements = {};
     const createElement = () => ({
         textContent: '',
@@ -143,25 +169,53 @@ function makeMockDeps() {
             parseFriendCodeFromQR,
             showToast: (msg) => calls.showToast.push(msg),
             generateAllQRCodes: () => calls.generateAllQRCodes++,
-            getDialog: () => ({ showModal() { }, close() { } }),
+            getDialog: () => ({ showModal() { }, close() { calls.dialogClose++; } }),
             getElement: (id) => {
                 if (!elements[id]) elements[id] = createElement();
                 return elements[id];
             },
-            querySelectorAll: () => [
-                { value: '' },
-                { value: '' },
-                { value: '' },
-                { value: '' },
-                { value: '' },
-                { value: '' },
-            ],
+            querySelectorAll: () => inputs,
+            vibrate: (pattern) => calls.vibrate.push(pattern),
             Html5Qrcode: class { start() { return Promise.resolve(); } stop() { return Promise.resolve(); } clear() { } },
         },
         calls,
         elements,
+        inputs,
     };
 }
+
+/**
+ * Html5Qrcode stand-in that mirrors the real library's state rules:
+ * stop() throws synchronously unless the camera is actually scanning, and
+ * start() stays pending until the test calls resolveStart().
+ */
+function makeControllableCamera() {
+    const instances = [];
+    class ControllableCamera {
+        constructor(target) {
+            this.target = target;
+            this.scanning = false;
+            this.cleared = false;
+            instances.push(this);
+        }
+        start(_camera, _config, onSuccess) {
+            this.onSuccess = onSuccess;
+            return new Promise((resolve, reject) => {
+                this.resolveStart = () => { this.scanning = true; resolve(); };
+                this.rejectStart = reject;
+            });
+        }
+        stop() {
+            if (!this.scanning) throw 'Cannot stop, scanner is not running or paused.';
+            this.scanning = false;
+            return Promise.resolve();
+        }
+        clear() { this.cleared = true; }
+    }
+    return { ControllableCamera, instances };
+}
+
+const flush = () => new Promise(resolve => setImmediate(resolve));
 
 // Valid code advances index
 {
@@ -173,14 +227,16 @@ function makeMockDeps() {
     assert.strictEqual(state.scannedCodes[0], 'ab12cd34', 'Code stored at index 0');
 }
 
-// Duplicate code rejected
+// Duplicate code rejected (an immediate re-read of the same code is ignored
+// silently, see below; a code scanned earlier in the session is reported)
 {
     const { deps, elements } = makeMockDeps();
     const scanner = createScanner(deps);
     scanner.onScanSuccess('ab12cd34');
+    scanner.onScanSuccess('ef56gh78');
     scanner.onScanSuccess('ab12cd34');
     const state = scanner.getState();
-    assert.strictEqual(state.currentScanIndex, 1, 'Index does not advance for duplicate');
+    assert.strictEqual(state.currentScanIndex, 2, 'Index does not advance for duplicate');
     assert.ok(
         elements['scanner-status'].textContent.includes('Already scanned'),
         'Status shows duplicate message'
@@ -343,6 +399,187 @@ function makeMockDeps() {
     assert.deepStrictEqual(state.scannedCodes, ['ef56gh78', 'jk90mn12', 'ab12cd34', null, null, null], 'All QR formats parsed');
 }
 
+const asyncScannerTests = (async () => {
+    // Closing via the X button while the camera is still starting must not throw,
+    // and the camera must be stopped once it finishes starting.
+    {
+        const { deps, calls } = makeMockDeps();
+        const { ControllableCamera, instances } = makeControllableCamera();
+        deps.Html5Qrcode = ControllableCamera;
+        const scanner = createScanner(deps);
+        scanner.openScanner();
+        assert.doesNotThrow(() => scanner.closeScanner(), 'closeScanner must not throw while camera is starting');
+        assert.strictEqual(calls.dialogClose, 1, 'Dialog closes even while camera is starting');
+        instances[0].resolveStart();
+        await flush();
+        assert.strictEqual(instances[0].scanning, false, 'Camera that finishes starting after close is stopped');
+        assert.strictEqual(scanner.getScannerInstance(), null, 'No scanner instance left after late start');
+    }
+
+    // Escape (native dialog close) while the camera is starting: no throw, camera stopped later
+    {
+        const { deps } = makeMockDeps();
+        const { ControllableCamera, instances } = makeControllableCamera();
+        deps.Html5Qrcode = ControllableCamera;
+        const scanner = createScanner(deps);
+        scanner.openScanner();
+        assert.doesNotThrow(() => scanner.handleDialogClose(), 'handleDialogClose must not throw while camera is starting');
+        instances[0].resolveStart();
+        await flush();
+        assert.strictEqual(instances[0].scanning, false, 'Camera is stopped after Escape during startup');
+    }
+
+    // stopCamera() while starting resolves instead of throwing (used before image upload)
+    {
+        const { deps } = makeMockDeps();
+        const { ControllableCamera, instances } = makeControllableCamera();
+        deps.Html5Qrcode = ControllableCamera;
+        const scanner = createScanner(deps);
+        scanner.openScanner();
+        let stopResult;
+        assert.doesNotThrow(() => { stopResult = scanner.stopCamera(); }, 'stopCamera must not throw while starting');
+        await stopResult;
+        instances[0].resolveStart();
+        await flush();
+        assert.strictEqual(instances[0].scanning, false, 'Camera started late is stopped after stopCamera');
+    }
+
+    // stopCamera() on a running camera stops and clears it
+    {
+        const { deps } = makeMockDeps();
+        const { ControllableCamera, instances } = makeControllableCamera();
+        deps.Html5Qrcode = ControllableCamera;
+        const scanner = createScanner(deps);
+        scanner.openScanner();
+        instances[0].resolveStart();
+        await flush();
+        await scanner.stopCamera();
+        assert.strictEqual(instances[0].scanning, false, 'Running camera is stopped');
+        assert.strictEqual(instances[0].cleared, true, 'Running camera is cleared');
+        assert.strictEqual(scanner.getScannerInstance(), null, 'Instance released after stop');
+    }
+
+    console.log('async scanner tests passed.');
+})();
+
+// Re-reading the code just scanned (still in view) is ignored silently
+{
+    const { deps, elements } = makeMockDeps();
+    const scanner = createScanner(deps);
+    scanner.onScanSuccess('ab12cd34');
+    const successMessage = elements['scanner-status'].textContent;
+    scanner.onScanSuccess('ab12cd34');
+    scanner.onScanSuccess('4,ab12cd34BCDE');
+    assert.strictEqual(elements['scanner-status'].textContent, successMessage, 'Success message survives repeat reads');
+    assert.strictEqual(scanner.getState().currentScanIndex, 1, 'Repeat reads do not advance');
+}
+
+// An earlier (not most recent) code scanned again is still reported as a duplicate
+{
+    const { deps, elements } = makeMockDeps();
+    const scanner = createScanner(deps);
+    scanner.onScanSuccess('ab12cd34');
+    scanner.onScanSuccess('ef56gh78');
+    scanner.onScanSuccess('ab12cd34');
+    assert.ok(elements['scanner-status'].textContent.includes('Already scanned'), 'Older duplicate is reported');
+}
+
+// Wrapping to slot 6 with prev and scanning once must not finish the session
+{
+    const { deps, calls } = makeMockDeps();
+    const scanner = createScanner(deps);
+    scanner.openScanner();
+    scanner.prevSlot();
+    assert.strictEqual(scanner.getState().currentScanIndex, 5, 'Prev from slot 1 wraps to slot 6');
+    scanner.onScanSuccess('ab12cd34');
+    assert.strictEqual(calls.dialogClose, 0, 'Scanner stays open while empty slots remain');
+    assert.strictEqual(scanner.getState().scannedCodes[5], 'ab12cd34', 'Code stored in slot 6');
+    assert.strictEqual(scanner.getState().currentScanIndex, 0, 'Moves to the first empty slot');
+    assert.ok(!calls.showToast.some(m => m.includes('All 6')), 'No false completion toast');
+}
+
+// Opening the scanner with saved codes starts at the first empty slot
+{
+    const { deps, elements } = makeMockDeps(['aaaaaaaa', 'bbbbbbbb', '', 'cccccccc', '', '']);
+    const scanner = createScanner(deps);
+    scanner.openScanner();
+    assert.strictEqual(scanner.getState().currentScanIndex, 2, 'Starts at first empty slot');
+    assert.strictEqual(elements['scanner-title'].textContent, 'Scan Friend Code 3 of 6', 'Title shows first empty slot');
+    scanner.onScanSuccess('dddddddd');
+    assert.strictEqual(scanner.getState().currentScanIndex, 4, 'Skips filled slot 4 and moves to slot 5');
+}
+
+// A code already saved in the form is rejected
+{
+    const { deps, elements } = makeMockDeps(['aaaaaaaa', '', '', '', '', '']);
+    const scanner = createScanner(deps);
+    scanner.openScanner();
+    scanner.onScanSuccess('7,aaaaaaaa');
+    assert.ok(elements['scanner-status'].textContent.includes('already in your list'), 'Saved code rejected');
+    assert.strictEqual(scanner.getState().currentScanIndex, 1, 'Index unchanged after rejecting saved code');
+}
+
+// Filling the remaining empty slots completes the session without touching saved codes
+{
+    const { deps, calls, inputs } = makeMockDeps(['aaaaaaaa', 'bbbbbbbb', 'cccccccc', 'dddddddd', '', '']);
+    const scanner = createScanner(deps);
+    scanner.openScanner();
+    scanner.onScanSuccess('eeeeeeee');
+    scanner.onScanSuccess('ffffffff');
+    assert.strictEqual(calls.dialogClose, 1, 'Session completes when no empty slots remain');
+    assert.deepStrictEqual(
+        inputs.map(i => i.value),
+        ['aaaaaaaa', 'bbbbbbbb', 'cccccccc', 'dddddddd', 'eeeeeeee', 'ffffffff'],
+        'Saved codes kept, scanned codes added'
+    );
+    assert.ok(calls.showToast.some(m => m.includes('2 code(s) imported')), 'Completion toast counts scanned codes');
+}
+
+// Navigating to a filled slot shows it will be replaced, and scanning replaces it
+{
+    const { deps, elements, inputs } = makeMockDeps(['aaaaaaaa', '', '', '', '', '']);
+    const scanner = createScanner(deps);
+    scanner.openScanner();
+    scanner.prevSlot();
+    assert.ok(elements['scanner-title'].textContent.includes('replaces aaaaaaaa'), 'Title warns about replacement');
+    scanner.onScanSuccess('zzzzzzzz');
+    scanner.closeScanner();
+    assert.strictEqual(inputs[0].value, 'zzzzzzzz', 'Explicitly chosen slot is replaced');
+}
+
+// Results are applied exactly once when completion is followed by the dialog close event
+{
+    const { deps, calls } = makeMockDeps();
+    const scanner = createScanner(deps);
+    scanner.openScanner();
+    ['aaaaaaaa', 'bbbbbbbb', 'cccccccc', 'dddddddd', 'eeeeeeee', 'ffffffff'].forEach(c => scanner.onScanSuccess(c));
+    scanner.handleDialogClose();
+    assert.strictEqual(calls.generateAllQRCodes, 1, 'Results applied once');
+    assert.strictEqual(calls.showToast.length, 1, 'Only the completion toast is shown');
+    assert.ok(calls.showToast[0].includes('All 6'), 'Completion toast kept');
+}
+
+// Partial session: closing applies results once and toasts the count
+{
+    const { deps, calls } = makeMockDeps();
+    const scanner = createScanner(deps);
+    scanner.openScanner();
+    scanner.onScanSuccess('aaaaaaaa');
+    scanner.closeScanner();
+    scanner.handleDialogClose();
+    assert.strictEqual(calls.generateAllQRCodes, 1, 'Partial results applied once');
+    assert.deepStrictEqual(calls.showToast, ['1 code(s) imported'], 'Partial import toast shown once');
+}
+
+// Successful scans vibrate; rejected ones do not
+{
+    const { deps, calls } = makeMockDeps();
+    const scanner = createScanner(deps);
+    scanner.onScanSuccess('ab12cd34');
+    scanner.onScanSuccess('not-valid');
+    assert.strictEqual(calls.vibrate.length, 1, 'Vibrates once for the one successful scan');
+}
+
 console.log('scanner tests passed.');
 
 // --- QR fixture image verification ---
@@ -366,4 +603,5 @@ for (const { file, expectedData, expectedCode } of fixtures) {
 }
 
 console.log('fixture tests passed.');
-console.log('All tests passed.');
+
+asyncScannerTests.then(() => console.log('All tests passed.'));
