@@ -224,17 +224,22 @@ bytes), the viewport, the Content Security Policy, and the referrer policy.
 
 Structure:
 
-- `<main>`: language picker, `<h1>`, the action buttons (a plain `<div>`, not
-  `<nav>`, since they are buttons rather than links), the friend-code
-  `<fieldset>` (visually hidden `<legend>`, one visible `<label>` per input),
-  the daily panel, the QR cards (`<section>` with a visually hidden `<h2>`;
+- `<main>`: language picker, `<h1>`, the daily panel (the main call to action
+  once codes exist, with a three-pill progress meter), the three action
+  buttons (a plain `<div>`, not `<nav>`, since they are buttons rather than
+  links), a "Friend codes" `<h2>` with a "Clear all" link button, the
+  friend-code `<fieldset>` (visually hidden `<legend>`, one visible `<label>`
+  per input; six per row on wide screens, three on tablets, two on phones,
+  aligned with the QR grid), the countdown with a "Refresh now" link button,
+  the QR cards (`<section>` with a visually hidden `<h2>`;
   each card's title is an `<h3>`), and How It Works (a `<details>` with its
   `<h2>` in the `<summary>`: open on a first visit, folded afterwards via
   `localStorage.howItWorksSeen`)
 - `<footer>`: disclaimer and support link (`rel="noopener noreferrer"`,
   lazy-loaded image)
 - `<dialog>`s for the scanner, daily scan mode, and the enlarged QR, each named
-  with `aria-labelledby`
+  with `aria-labelledby`. Their QR codes render at 600px and are sized with
+  CSS `min()` so they always fit; the daily view is full-screen on phones
 - `<output aria-live="polite">` for toasts (`<output>` already has the status
   role)
 

@@ -44,6 +44,14 @@
         <h1 data-i18n="header.title">Shenron &amp; Porunga QR Generator</h1>
         <p class="subtitle" data-i18n="header.subtitle">For the Dragon Ball Legends Dragon Ball events · unofficial fan tool</p>
 
+        <section id="daily-panel" aria-labelledby="daily-panel-title" hidden>
+            <h2 id="daily-panel-title" class="visually-hidden" data-i18n="daily.title">Daily scans</h2>
+            <div class="progress-pills" aria-hidden="true"><span class="pill"></span><span class="pill"></span><span class="pill"></span></div>
+            <p id="daily-progress">Scanned today: 0 of 3</p>
+            <p id="daily-reset"></p>
+            <button id="start-daily" type="button" class="btn-primary" data-i18n="daily.start">Start daily scans</button>
+        </section>
+
         <div id="actions">
             <div class="btn-group">
                 <button type="button" id="import-codes" class="btn-primary" data-i18n="actions.scan">Scan QR Codes</button>
@@ -57,29 +65,18 @@
                 <button type="button" id="upload-codes" data-i18n="actions.upload">Upload Friend Codes</button>
                 <span class="btn-desc" data-i18n="actions.uploadDesc">Load codes from a .txt file</span>
             </div>
-            <div class="btn-group">
-                <button type="button" id="manual-refresh" data-i18n="actions.refresh">Manual Refresh</button>
-                <span class="btn-desc" data-i18n="actions.refreshDesc">Regenerate QR codes now</span>
-            </div>
-            <div class="btn-group">
-                <button type="button" id="clear-codes" class="btn-danger" data-i18n="actions.clear">Clear</button>
-                <span class="btn-desc" data-i18n="actions.clearDesc">Remove all friend codes</span>
-            </div>
             <input type="file" id="file-input" accept=".txt" hidden>
         </div>
 
+        <div id="codes-header">
+            <h2 id="codes-title" data-i18n="input.groupLabel">Friend codes</h2>
+            <button type="button" id="clear-codes" class="link-button link-danger" data-i18n="actions.clear">Clear all</button>
+        </div>
         <fieldset id="friend-code-form">
             <legend class="visually-hidden" data-i18n="input.groupLabel">Friend codes</legend>
         </fieldset>
 
-        <p id="refresh-countdown" hidden></p>
-
-        <section id="daily-panel" aria-labelledby="daily-panel-title" hidden>
-            <h2 id="daily-panel-title" class="visually-hidden" data-i18n="daily.title">Daily scans</h2>
-            <p id="daily-progress">Scanned today: 0 of 3</p>
-            <p id="daily-reset"></p>
-            <button id="start-daily" type="button" class="btn-primary" data-i18n="daily.start">Start daily scans</button>
-        </section>
+        <p id="refresh-status" hidden><span id="refresh-countdown"></span> · <button type="button" id="manual-refresh" class="link-button" data-i18n="actions.refresh">Refresh now</button></p>
 
         <div id="empty-state" hidden>
             <p data-i18n="empty.intro">No friend codes added yet. Get started:</p>
@@ -143,6 +140,7 @@
             <h2 id="daily-title" data-i18n="daily.title">Daily scans</h2>
             <button id="daily-close" type="button" aria-label="Close daily scans" data-i18n-attr="aria-label:daily.close">&times;</button>
         </div>
+        <div class="progress-pills" aria-hidden="true"><span class="pill"></span><span class="pill"></span><span class="pill"></span></div>
         <p id="daily-scan-progress"></p>
         <div id="daily-scanning">
             <p id="daily-label"></p>

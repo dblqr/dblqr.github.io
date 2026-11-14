@@ -210,7 +210,7 @@ function generateAllQRCodes() {
 
     const hasCodes = qrCards.size > 0;
     document.getElementById('empty-state').hidden = hasCodes;
-    document.getElementById('refresh-countdown').hidden = !hasCodes;
+    document.getElementById('refresh-status').hidden = !hasCodes;
     secondsUntilRefresh = REFRESH_SECONDS;
     renderCountdown();
     renderScanState();
@@ -249,9 +249,9 @@ function refreshNow() {
 function openZoom(slot) {
     const dialog = document.getElementById('qr-zoom');
     const target = document.getElementById('qr-zoom-code');
-    const size = Math.max(200, Math.min(window.innerWidth, window.innerHeight, 640) - 96);
     target.innerHTML = '';
-    zoomQr = createQr(target, size, 'x');
+    // Rendered large; CSS sizes it to fit the viewport.
+    zoomQr = createQr(target, 600, 'x');
     zoomSlot = slot;
     dialog.showModal();
     updateZoom();
@@ -318,6 +318,12 @@ function renderScanState() {
         card.scanToggle.textContent = t(scanned ? 'card.scannedToday' : 'card.markScanned');
     });
     const progress = t('daily.progress', { count: scanLog.codes.length, goal: DAILY_GOAL });
+    // Visual meter: one pill per required scan (extra scans keep it full).
+    document.querySelectorAll('.progress-pills').forEach(meter => {
+        meter.querySelectorAll('.pill').forEach((pill, i) => {
+            pill.classList.toggle('filled', i < scanLog.codes.length);
+        });
+    });
     document.getElementById('daily-progress').textContent = progress;
     document.getElementById('daily-scan-progress').textContent = progress;
     renderResetTime(document.getElementById('daily-reset'), nextGameReset(new Date()));
@@ -338,9 +344,9 @@ function renderResetTime(element, resetAt) {
 function openDaily() {
     rollOverDay();
     const target = document.getElementById('daily-code');
-    const size = Math.max(200, Math.min(window.innerWidth, window.innerHeight - 220, 560) - 64);
     target.innerHTML = '';
-    dailyQr = createQr(target, size, 'x');
+    // Rendered large; CSS sizes it to fit the dialog on any screen.
+    dailyQr = createQr(target, 600, 'x');
     const first = nextDailySlot(getFriendCodes(), scanLog, 0);
     if (first === -1) return;
     document.getElementById('daily-scan').showModal();

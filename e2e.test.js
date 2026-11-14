@@ -275,6 +275,9 @@ test.describe('Clear', () => {
 // ---------------------------------------------------------------------------
 test.describe('Manual refresh', () => {
   test('shows toast on click', async ({ page }) => {
+    // "Refresh now" lives in the countdown, which only shows when there are codes.
+    await fillCode(page, 0, 'abcd1234');
+    await page.locator('.qr-display > div.visible').first().waitFor();
     await page.locator('#manual-refresh').click();
     const toast = page.locator('#toast');
     await expect(toast).toHaveClass(/show/);
@@ -287,13 +290,13 @@ test.describe('Manual refresh', () => {
 // ---------------------------------------------------------------------------
 test.describe('Toast', () => {
   test('appears with show class', async ({ page }) => {
-    await page.locator('#manual-refresh').click();
+    await page.locator('#export-codes').click();
     const toast = page.locator('#toast');
     await expect(toast).toHaveClass(/show/);
   });
 
   test('auto-dismisses after ~2 seconds', async ({ page }) => {
-    await page.locator('#manual-refresh').click();
+    await page.locator('#export-codes').click();
     const toast = page.locator('#toast');
     await expect(toast).toHaveClass(/show/);
     // The toast removes the show class after 2000ms; allow a small buffer.
@@ -632,10 +635,10 @@ test.describe('Robustness and recovery', () => {
     await page.reload();
     await page.locator('#export-codes').click();
     await page.clock.runFor(1500);
-    await page.locator('#manual-refresh').click();
+    await page.locator('#export-codes').click();
     await page.clock.runFor(1000);
     await expect(page.locator('#toast')).toHaveClass(/show/);
-    await expect(page.locator('#toast')).toHaveText('QRs refreshed!');
+    await expect(page.locator('#toast')).toHaveText('No friend codes to export');
     await page.clock.runFor(1500);
     await expect(page.locator('#toast')).not.toHaveClass(/show/);
   });
@@ -1426,5 +1429,134 @@ test.describe('HTML best-practice updates', () => {
     await expect(input).toHaveAttribute('minlength', '8');
     await expect(input).toHaveAttribute('maxlength', '8');
     await expect(input).toHaveAttribute('pattern', '[a-zA-Z0-9]{8}');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 25. Design pass
+// ---------------------------------------------------------------------------
+test.describe('Design', () => {
+  async function fillCodes(page, codes) {
+    for (let i = 0; i < codes.length; i++) await fillCode(page, i, codes[i]);
+    await expect(page.locator('.qr-display > div.visible')).toHaveCount(codes.length);
+  }
+  const box = (page, selector) => page.locator(selector).first().boundingBox();
+  const SIX = ['aaaaaaaa', 'bbbbbbbb', 'cccccccc', 'dddddddd', 'eeeeeeee', 'ffffffff'];
+
+  // 1. Daily view QR fits on phones, and the daily view is full-screen there
+  for (const [width, height] of [[390, 844], [360, 640], [1440, 900]]) {
+    test(`daily view QR is fully visible at ${width}x${height}`, async ({ page }) => {
+      await page.setViewportSize({ width, height });
+      await fillCodes(page, ['aaaaaaaa']);
+      await page.locator('#start-daily').click();
+      const dialog = await box(page, '#daily-scan');
+      const qr = await box(page, '#daily-code');
+      expect(qr.x).toBeGreaterThanOrEqual(dialog.x);
+      expect(qr.x + qr.width).toBeLessThanOrEqual(dialog.x + dialog.width);
+      expect(qr.x + qr.width).toBeLessThanOrEqual(width);
+      expect(qr.y + qr.height).toBeLessThanOrEqual(height);
+      expect(qr.width).toBeGreaterThanOrEqual(Math.min(280, width - 80));
+      if (width < 600) {
+        expect(dialog.width).toBeGreaterThanOrEqual(width - 1);
+        expect(dialog.height).toBeGreaterThanOrEqual(height - 1);
+      }
+    });
+  }
+
+  // 2. Phones: two code boxes per row; QR codes start within about a screen
+  test('phones show two code boxes per row and QR codes start sooner', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await fillCodes(page, ['aaaaaaaa', 'bbbbbbbb', 'cccccccc']);
+    const first = await box(page, '#code-1');
+    const second = await box(page, '#code-2');
+    expect(Math.round(first.y)).toBe(Math.round(second.y));
+    const card = await box(page, '.qr-display > div');
+    expect(card.y).toBeLessThan(1000);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test('wide screens show all six code boxes in one row', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const tops = await page.locator('#friend-code-form input').evaluateAll(inputs =>
+      inputs.map(i => Math.round(i.getBoundingClientRect().top)));
+    expect(new Set(tops).size).toBe(1);
+  });
+
+  // 3. Hierarchy
+  test('daily scans is the main call to action above the other actions', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await fillCodes(page, ['aaaaaaaa']);
+    const panel = await box(page, '#daily-panel');
+    const actions = await box(page, '#actions');
+    expect(panel.y).toBeLessThan(actions.y);
+    const start = await box(page, '#start-daily');
+    expect(start.height).toBeGreaterThanOrEqual(44);
+  });
+
+  test('refresh now sits in the countdown; clear all sits with the code boxes', async ({ page }) => {
+    await expect(page.locator('#actions #manual-refresh')).toHaveCount(0);
+    await expect(page.locator('#actions #clear-codes')).toHaveCount(0);
+    await expect(page.locator('#codes-header #clear-codes')).toHaveText(STRINGS.en['actions.clear']);
+    await expect(page.locator('#codes-title')).toHaveText(STRINGS.en['input.groupLabel']);
+    await fillCodes(page, ['aaaaaaaa']);
+    await expect(page.locator('#refresh-status #manual-refresh')).toHaveText(STRINGS.en['actions.refresh']);
+    await expect(page.locator('#refresh-status #refresh-countdown')).toBeVisible();
+  });
+
+  test('only the action descriptions that add information remain', async ({ page }) => {
+    await expect(page.locator('#actions .btn-desc')).toHaveCount(3);
+    await expect(page.locator('#actions button')).toHaveCount(3);
+  });
+
+  // 4. Cards
+  test('card titles are plain text and Mark scanned outranks Download', async ({ page }) => {
+    await fillCodes(page, ['aaaaaaaa']);
+    const card = page.locator('.qr-display > div').first();
+    const title = await card.locator('.card-label').evaluate(el => {
+      const s = getComputedStyle(el);
+      return { background: s.backgroundColor, border: s.borderTopWidth };
+    });
+    expect(title).toEqual({ background: 'rgba(0, 0, 0, 0)', border: '0px' });
+
+    const bg = (selector) => card.locator(selector).evaluate(el => getComputedStyle(el).backgroundColor);
+    expect(await bg('.download-button')).toBe('rgba(0, 0, 0, 0)');
+    expect(await bg('.scan-toggle')).not.toBe('rgba(0, 0, 0, 0)');
+    const toggle = await card.locator('.scan-toggle').boundingBox();
+    expect(toggle.height).toBeGreaterThanOrEqual(36);
+  });
+
+  // 5. Progress meter
+  test('progress pills fill as codes are scanned', async ({ page }) => {
+    await fillCodes(page, ['aaaaaaaa', 'bbbbbbbb', 'cccccccc', 'dddddddd']);
+    const pills = page.locator('#daily-panel .progress-pills .pill');
+    await expect(pills).toHaveCount(3);
+    await expect(page.locator('#daily-panel .progress-pills .pill.filled')).toHaveCount(0);
+    for (let i = 0; i < 2; i++) await page.locator('.qr-display > div').nth(i).locator('.scan-toggle').click();
+    await expect(page.locator('#daily-panel .progress-pills .pill.filled')).toHaveCount(2);
+
+    await page.locator('#start-daily').click();
+    await expect(page.locator('#daily-scan .progress-pills .pill.filled')).toHaveCount(2);
+    await page.locator('#daily-done').click();
+    await page.locator('#daily-done').click();
+    await expect(page.locator('#daily-scan .progress-pills .pill.filled')).toHaveCount(3);
+    await expect(page.locator('#daily-scan .progress-pills .pill')).toHaveCount(3);
+  });
+
+  // 6. Consistent widths and tighter spacing
+  test('code boxes line up with the QR grid on wide screens', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await fillCodes(page, SIX);
+    const form = await box(page, '#friend-code-form');
+    const grid = await box(page, '.qr-display');
+    expect(Math.abs(form.width - grid.width)).toBeLessThanOrEqual(4);
+    expect(Math.abs(form.x - grid.x)).toBeLessThanOrEqual(4);
+  });
+
+  test('the empty page has no large gap before How It Works', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const empty = await box(page, '#empty-state');
+    const how = await box(page, '#how-it-works');
+    expect(how.y - (empty.y + empty.height)).toBeLessThanOrEqual(48);
   });
 });
